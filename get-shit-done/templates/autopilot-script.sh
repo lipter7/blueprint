@@ -17,6 +17,10 @@
 
 set -euo pipefail
 
+# Signal to GSD commands that we're in autopilot mode
+# Commands will suppress "Next Up" guidance and use plain text output
+export GSD_AUTOPILOT=1
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration (filled by /gsd:autopilot)
 # ─────────────────────────────────────────────────────────────────────────────

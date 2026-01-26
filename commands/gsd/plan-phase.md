@@ -486,6 +486,24 @@ Route to `<offer_next>`.
 </process>
 
 <offer_next>
+**Check autopilot mode first:**
+
+```bash
+echo $GSD_AUTOPILOT
+```
+
+**If GSD_AUTOPILOT=1 (autopilot mode):**
+
+Output minimal plain text confirmation:
+
+```
+Phase {X} planned: {N} plan(s) ready
+```
+
+Then stop. Do NOT output the "Next Up" section or any guidance.
+
+**Otherwise (interactive mode):**
+
 Output this markdown directly (not as a code block):
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -508,15 +526,15 @@ Verification: {Passed | Passed with override | Skipped}
 
 **Execute Phase {X}** — run all {N} plans
 
-/gsd:execute-phase {X}
+`/gsd:execute-phase {X}`
 
-<sub>/clear first → fresh context window</sub>
+<sub>`/clear` first → fresh context window</sub>
 
 ───────────────────────────────────────────────────────────────
 
 **Also available:**
-- cat .planning/phases/{phase-dir}/*-PLAN.md — review plans
-- /gsd:plan-phase {X} --research — re-research first
+- `cat .planning/phases/{phase-dir}/*-PLAN.md` — review plans
+- `/gsd:plan-phase {X} --research` — re-research first
 
 ───────────────────────────────────────────────────────────────
 </offer_next>

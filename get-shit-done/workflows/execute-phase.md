@@ -143,6 +143,21 @@ waves = {
 
 **No dependency analysis needed.** Wave numbers are pre-computed during `/gsd:plan-phase`.
 
+**Check autopilot mode:**
+
+```bash
+echo $GSD_AUTOPILOT
+```
+
+**If GSD_AUTOPILOT=1 (autopilot mode):**
+
+Report minimal plain text:
+```
+Phase {X}: {total_plans} plans, {wave_count} waves
+```
+
+**Otherwise (interactive mode):**
+
 Report wave structure with context:
 ```
 ## Execution Plan
@@ -456,6 +471,16 @@ If user reports issues → treat as gaps_found.
 
 **If gaps_found:**
 
+**Check autopilot mode:**
+
+```bash
+echo $GSD_AUTOPILOT
+```
+
+**If GSD_AUTOPILOT=1:** Output `Phase {X} verification: gaps_found` and stop. Autopilot script handles gap closure.
+
+**Otherwise (interactive mode):**
+
 Present gaps and offer next command:
 
 ```markdown
@@ -524,6 +549,24 @@ git commit -m "docs(phase-{X}): complete phase execution"
 </step>
 
 <step name="offer_next">
+**Check autopilot mode first:**
+
+```bash
+echo $GSD_AUTOPILOT
+```
+
+**If GSD_AUTOPILOT=1 (autopilot mode):**
+
+Output minimal plain text confirmation:
+
+```
+Phase {X} complete: {N} plans executed, verification {passed|gaps_found|human_needed}
+```
+
+Then stop. Do NOT output the "Next Up" section or any guidance.
+
+**Otherwise (interactive mode):**
+
 Present next steps based on milestone status:
 
 **If more phases remain:**
