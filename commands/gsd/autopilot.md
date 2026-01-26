@@ -127,20 +127,7 @@ Checkpoints queued to: `.planning/checkpoints/pending/`
 ───────────────────────────────────────────────────────────────
 ```
 
-## 5. Confirm and Generate Script
-
-Use AskUserQuestion:
-- header: "Run"
-- question: "Ready to start autopilot?"
-- options:
-  - "Start now" — Run attached, streaming output to terminal
-  - "Run in background" — Detach with nohup, check .planning/logs/
-  - "Just generate script" — Create script, I'll run it myself
-  - "Cancel" — Don't run
-
-**If Cancel:** Exit.
-
-**Generate script:**
+## 5. Generate Script
 
 Read template from `@~/.claude/get-shit-done/templates/autopilot-script.sh` and fill:
 - `{{project_dir}}` — Current directory (absolute path)
@@ -155,55 +142,60 @@ Read template from `@~/.claude/get-shit-done/templates/autopilot-script.sh` and 
 
 Write to `.planning/autopilot.sh`:
 ```bash
+mkdir -p .planning/logs
 chmod +x .planning/autopilot.sh
 ```
 
-## 6. Execute Based on Choice
+## 6. Present Run Instructions
 
-**If "Start now":**
-```bash
-# Create logs directory
-mkdir -p .planning/logs
+**IMPORTANT:** The autopilot script must run **outside** of Claude Code in a separate terminal. Claude Code's Bash tool has a 10-minute timeout which would interrupt long-running execution.
 
-# Run attached with output streaming
-bash .planning/autopilot.sh 2>&1 | tee .planning/logs/autopilot-$(date +%Y%m%d-%H%M%S).log
+Present the following:
 
-# Terminal bell on completion
-echo -e "\a"
 ```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► AUTOPILOT READY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-**If "Run in background":**
-```bash
-mkdir -p .planning/logs
-LOG_FILE=".planning/logs/autopilot-$(date +%Y%m%d-%H%M%S).log"
-
-nohup bash .planning/autopilot.sh > "$LOG_FILE" 2>&1 &
-PID=$!
-
-echo "Autopilot running in background (PID: $PID)"
-echo "Log: $LOG_FILE"
-echo ""
-echo "Monitor: tail -f $LOG_FILE"
-echo "Stop: kill $PID"
-```
-
-**If "Just generate script":**
-```
 Script generated: .planning/autopilot.sh
 
-To run:
-  bash .planning/autopilot.sh
+───────────────────────────────────────────────────────────────
 
-To run in background:
-  nohup bash .planning/autopilot.sh > .planning/logs/autopilot.log 2>&1 &
+## Run in a separate terminal
 
-To monitor:
-  tail -f .planning/logs/autopilot.log
+**Attached (recommended — see output live):**
+```
+cd {project_dir} && bash .planning/autopilot.sh
+```
+
+**Background (for overnight runs):**
+```
+cd {project_dir} && nohup bash .planning/autopilot.sh > .planning/logs/autopilot.log 2>&1 &
+```
+
+**Monitor logs:**
+```
+tail -f .planning/logs/autopilot.log
+```
+
+───────────────────────────────────────────────────────────────
+
+**Why a separate terminal?**
+Claude Code's Bash tool has a 10-minute timeout. Autopilot runs for
+hours across multiple phases — it needs to run independently.
+
+**Resume after interruption:**
+Just run the script again. It detects completed phases and continues.
+
+**Check on checkpoints:**
+`/gsd:checkpoints` — review and approve any pending human input
+
+───────────────────────────────────────────────────────────────
 ```
 
 ## 7. Update State
 
-Before execution starts, update STATE.md:
+Before presenting instructions, update STATE.md to mark autopilot as ready:
 
 ```markdown
 ## Autopilot
