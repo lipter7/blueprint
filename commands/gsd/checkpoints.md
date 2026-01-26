@@ -1,7 +1,6 @@
 ---
 name: gsd:checkpoints
 description: Review and approve pending checkpoints from autopilot execution
-argument-hint: "[approve <id>] [reject <id>]"
 allowed-tools:
   - Read
   - Write
@@ -11,166 +10,220 @@ allowed-tools:
 ---
 
 <objective>
-Manage the checkpoint queue created during autopilot execution.
+Interactive guided flow to review and complete pending checkpoints from autopilot.
 
-Checkpoints are created when plans with `autonomous: false` need human input (API keys, design decisions, verification). Review pending checkpoints and provide approvals so autopilot can continue.
+Checkpoints are human tasks created when plans need manual intervention (adding secrets, external setup, design decisions). This command walks you through each one.
 </objective>
 
-<context>
-Arguments: $ARGUMENTS
-
-**Subcommands:**
-- (no args) — List all pending checkpoints
-- `approve <id>` — Approve checkpoint with response
-- `reject <id>` — Reject checkpoint (plan will be skipped)
-- `clear` — Clear all approved checkpoints (after autopilot processes them)
-</context>
+<execution_context>
+@~/.claude/get-shit-done/references/ui-brand.md
+</execution_context>
 
 <process>
 
-## List Pending Checkpoints (default)
+## 1. Check for Pending Checkpoints
 
 ```bash
-PENDING=$(ls .planning/checkpoints/pending/*.json 2>/dev/null)
-APPROVED=$(ls .planning/checkpoints/approved/*.json 2>/dev/null)
+PENDING_DIR=".planning/checkpoints/pending"
+PENDING_COUNT=$(ls "$PENDING_DIR"/*.json 2>/dev/null | wc -l | tr -d ' ')
 ```
 
 **If no checkpoints:**
-```
-No pending checkpoints.
-
-Checkpoints are created when autopilot encounters plans that need human input.
-```
-
-**If checkpoints exist:**
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
  GSD ► CHECKPOINTS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## Pending ({count})
+No pending checkpoints.
 
-| ID | Phase | Plan | Type | Awaiting |
-|----|-------|------|------|----------|
-| 1 | 03 | OAuth Integration | auth-gate | OAuth credentials |
-| 2 | 05 | Payment Setup | auth-gate | Stripe API keys |
+Checkpoints are created when autopilot encounters tasks that need
+your input—like adding API keys or making design decisions.
 
-## Approved ({count})
-
-| ID | Phase | Plan | Approved At |
-|----|-------|------|-------------|
-| - | 02 | Email Config | 2026-01-26 14:30 |
-
-───────────────────────────────────────────────────────────────
-
-**Commands:**
-- `/gsd:checkpoints approve 1` — Approve checkpoint 1
-- `/gsd:checkpoints reject 2` — Reject checkpoint 2
-- `/gsd:checkpoints clear` — Clear processed approvals
-
-───────────────────────────────────────────────────────────────
+Run /gsd:autopilot to start autonomous execution.
 ```
 
-## Approve Checkpoint
+**Stop here if no checkpoints.**
 
-Parse `approve <id>` from arguments.
+## 2. Present Checkpoint Selection
 
-Read the pending checkpoint file:
-```bash
-CHECKPOINT_FILE=$(ls .planning/checkpoints/pending/*.json | sed -n "${ID}p")
-```
-
-Display checkpoint details:
-```
-## Checkpoint: Phase 03, Plan 02 (OAuth Integration)
-
-**Type:** auth-gate
-**Created:** 2026-01-26 14:00
-
-**Context:**
-Plan paused after task 2. Tasks 3-4 require OAuth setup.
-
-**Completed tasks:**
-1. ✓ Create OAuth service skeleton (abc123)
-2. ✓ Add Google OAuth config structure (def456)
-
-**Awaiting:**
-OAuth client credentials for Google
-
-───────────────────────────────────────────────────────────────
-```
+Build options from pending checkpoint files. Parse each JSON to extract:
+- Phase number
+- Plan name
+- Brief description of what's awaiting
 
 Use AskUserQuestion:
-- header: "Approve"
-- question: "Provide the requested information or approve to continue"
-- options:
-  - "Approve with response" — I'll provide what's needed
-  - "Approve (no response needed)" — Continue without additional info
-  - "Cancel" — Don't approve yet
+```
+question: "You have {N} pending checkpoints. Which would you like to handle?"
+header: "Checkpoint"
+options:
+  - label: "Phase {X}: {task_name}"
+    description: "{brief awaiting description}"
+  - label: "Phase {Y}: {task_name}"
+    description: "{brief awaiting description}"
+  - ... (up to 4, or summarize if more)
+  - label: "Skip for now"
+    description: "Exit without handling any checkpoints"
+```
 
-**If "Approve with response":**
-Ask inline: "What response should be passed to the continuation agent?"
+**If "Skip for now":** End with "Run /gsd:checkpoints when you're ready."
 
-**Create approval file:**
+## 3. Show Checkpoint Instructions
+
+For the selected checkpoint, read the full JSON and display:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ GSD ► CHECKPOINT: {task_name}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Phase {X}, Plan {Y} paused here waiting for you.
+
+## What you need to do
+
+{instructions from checkpoint JSON, formatted as numbered steps}
+
+───────────────────────────────────────────────────────
+```
+
+## 4. Ask for Completion
+
+Use AskUserQuestion:
+```
+question: "Have you completed this task?"
+header: "Status"
+options:
+  - label: "Done"
+    description: "I've completed the steps above (Recommended)"
+  - label: "Skip this feature"
+    description: "Don't need this, continue without it"
+  - label: "Later"
+    description: "I'll handle this another time"
+```
+
+### If "Done":
+
+Ask for optional note:
+```
+question: "Any notes for the continuation? (e.g., 'Used different env var name')"
+header: "Notes"
+options:
+  - label: "No notes"
+    description: "Just continue with the plan"
+  - label: "Add a note"
+    description: "Provide context for the AI"
+```
+
+**If "Add a note":** Use AskUserQuestion with text input for the note.
+
+Create approval file:
 ```json
 {
-  "phase": "03",
-  "plan": "02",
+  "phase": "{phase}",
+  "plan": "{plan}",
   "approved": true,
-  "response": "[user's response]",
-  "approved_at": "2026-01-26T15:00:00Z"
+  "note": "{user note or empty}",
+  "approved_at": "{ISO timestamp}"
 }
 ```
 
-Write to `.planning/checkpoints/approved/phase-03-plan-02.json`
-
-Remove from pending:
-```bash
-rm .planning/checkpoints/pending/phase-03-plan-02.json
-```
+Write to `.planning/checkpoints/approved/{original_filename}`
+Remove from `.planning/checkpoints/pending/`
 
 ```
 ✓ Checkpoint approved
 
-Autopilot will pick up this approval on next run or when it revisits phase 03.
+Autopilot will continue this plan on next run.
 ```
 
-## Reject Checkpoint
+### If "Skip this feature":
 
 Create rejection file:
 ```json
 {
-  "phase": "03",
-  "plan": "02",
+  "phase": "{phase}",
+  "plan": "{plan}",
   "approved": false,
-  "reason": "[user's reason]",
-  "rejected_at": "2026-01-26T15:00:00Z"
+  "reason": "User skipped - feature not needed",
+  "rejected_at": "{ISO timestamp}"
 }
 ```
 
-```
-✗ Checkpoint rejected
-
-Plan 02 in phase 03 will be skipped during autopilot execution.
-```
-
-## Clear Approved
-
-```bash
-rm .planning/checkpoints/approved/*.json 2>/dev/null
-```
+Write to `.planning/checkpoints/approved/{original_filename}`
+Remove from `.planning/checkpoints/pending/`
 
 ```
-✓ Cleared {count} processed approvals
+✓ Checkpoint skipped
+
+This plan will be marked as skipped during execution.
+```
+
+### If "Later":
+
+Leave checkpoint in pending, no changes.
+
+```
+Checkpoint remains pending. Run /gsd:checkpoints when ready.
+```
+
+## 5. Offer Next Checkpoint
+
+If more pending checkpoints remain:
+
+Use AskUserQuestion:
+```
+question: "You have {N} more pending checkpoints."
+header: "Continue"
+options:
+  - label: "Handle next"
+    description: "{next checkpoint brief description}"
+  - label: "Done for now"
+    description: "Exit checkpoints"
+```
+
+**If "Handle next":** Loop back to step 3 with the next checkpoint.
+
+**If "Done for now":**
+```
+───────────────────────────────────────────────────────
+
+{N} checkpoints remaining. Run /gsd:checkpoints to continue.
+
+Autopilot will process approved checkpoints on next run,
+or run it now: bash .planning/autopilot.sh
 ```
 
 </process>
 
+<checkpoint_json_format>
+Pending checkpoint files contain:
+
+```json
+{
+  "phase": "03",
+  "plan": "02",
+  "plan_name": "OAuth Integration",
+  "task_name": "Add Google OAuth credentials",
+  "instructions": "1. Go to console.cloud.google.com\n2. Create OAuth 2.0 credential\n3. Add to .env.local:\n   GOOGLE_CLIENT_ID=your-id\n   GOOGLE_CLIENT_SECRET=your-secret",
+  "context": "Plan paused after task 2. Remaining tasks need OAuth configured.",
+  "completed_tasks": [
+    {"task": 1, "commit": "abc123", "name": "Create OAuth service skeleton"},
+    {"task": 2, "commit": "def456", "name": "Add config structure"}
+  ],
+  "created_at": "2026-01-26T14:30:00Z"
+}
+```
+
+The `instructions` field is what gets shown to the user. It should be actionable steps they can follow, not a request for data to paste.
+</checkpoint_json_format>
+
 <success_criteria>
-- [ ] Pending checkpoints listed with details
-- [ ] Approved checkpoints shown separately
-- [ ] Approve creates approval file, removes from pending
-- [ ] Reject creates rejection file, removes from pending
-- [ ] Clear removes processed approvals
+- [ ] Graceful handling when no checkpoints exist
+- [ ] Interactive selection when multiple checkpoints pending
+- [ ] Clear instructions displayed for selected checkpoint
+- [ ] Three completion options: Done / Skip / Later
+- [ ] Optional notes on Done
+- [ ] Approval/rejection files created correctly
+- [ ] Loops to offer next checkpoint
+- [ ] No secrets stored in checkpoint files
 </success_criteria>
