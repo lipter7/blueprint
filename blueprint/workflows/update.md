@@ -117,14 +117,14 @@ Exit.
 ────────────────────────────────────────────────────────────
 
 ⚠️  **Note:** The installer performs a clean install of Blueprint folders:
-- `commands/gsd/` will be wiped and replaced
+- `commands/bp/` will be wiped and replaced
 - `blueprint/` will be wiped and replaced
 - `agents/bp-*` files will be replaced
 
 (Paths are relative to your install location: `~/.claude/` for global, `./.claude/` for local)
 
 Your custom files in other locations are preserved:
-- Custom commands not in `commands/gsd/` ✓
+- Custom commands not in `commands/bp/` ✓
 - Custom agents not prefixed with `bp-` ✓
 - Custom hooks ✓
 - Your CLAUDE.md files ✓

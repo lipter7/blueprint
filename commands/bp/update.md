@@ -1,5 +1,5 @@
 ---
-name: gsd:update
+name: bp:update
 description: Update Blueprint to latest version with changelog display
 allowed-tools:
   - Bash

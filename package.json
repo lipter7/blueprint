@@ -1,6 +1,6 @@
 {
   "name": "@lipter7/blueprint",
-  "version": "1.18.0",
+  "version": "2.0.0",
   "description": "Blueprint: a meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode and Gemini CLI.",
   "bin": {
     "blueprint": "bin/install.js"

@@ -16,7 +16,8 @@
 <br>
 
 ```bash
-npx @lipter7/blueprint@latest
+npm install -g @lipter7/blueprint
+blueprint
 ```
 
 **Works on Mac, Windows, and Linux.**
@@ -44,7 +45,8 @@ Blueprint is a fork of [GET SHIT DONE (GSD)](https://github.com/gsd-build/get-sh
 ## Getting Started
 
 ```bash
-npx @lipter7/blueprint@latest
+npm install -g @lipter7/blueprint
+blueprint
 ```
 
 The installer prompts you to choose:
@@ -58,7 +60,8 @@ Verify with `/bp:help` inside your chosen runtime.
 Blueprint evolves fast. Update periodically:
 
 ```bash
-npx @lipter7/blueprint@latest
+npm install -g @lipter7/blueprint@latest
+blueprint
 ```
 
 <details>
@@ -66,17 +69,17 @@ npx @lipter7/blueprint@latest
 
 ```bash
 # Claude Code
-npx @lipter7/blueprint --claude --global   # Install to ~/.claude/
-npx @lipter7/blueprint --claude --local    # Install to ./.claude/
+blueprint --claude --global   # Install to ~/.claude/
+blueprint --claude --local    # Install to ./.claude/
 
 # OpenCode (open source, free models)
-npx @lipter7/blueprint --opencode --global # Install to ~/.config/opencode/
+blueprint --opencode --global # Install to ~/.config/opencode/
 
 # Gemini CLI
-npx @lipter7/blueprint --gemini --global   # Install to ~/.gemini/
+blueprint --gemini --global   # Install to ~/.gemini/
 
 # All runtimes
-npx @lipter7/blueprint --all --global      # Install to all directories
+blueprint --all --global      # Install to all directories
 ```
 
 Use `--global` (`-g`) or `--local` (`-l`) to skip the location prompt.
@@ -555,18 +558,19 @@ This prevents Claude from reading these files entirely, regardless of what comma
 
 **Commands not working as expected?**
 - Run `/bp:help` to verify installation
-- Re-run `npx @lipter7/blueprint` to reinstall
+- Re-run `blueprint` to reinstall
 
 **Updating to the latest version?**
 ```bash
-npx @lipter7/blueprint@latest
+npm install -g @lipter7/blueprint@latest
+blueprint
 ```
 
 **Using Docker or containerized environments?**
 
 If file reads fail with tilde paths (`~/.claude/...`), set `CLAUDE_CONFIG_DIR` before installing:
 ```bash
-CLAUDE_CONFIG_DIR=/home/youruser/.claude npx @lipter7/blueprint --global
+CLAUDE_CONFIG_DIR=/home/youruser/.claude blueprint --global
 ```
 This ensures absolute paths are used instead of `~` which may not expand correctly in containers.
 
@@ -576,12 +580,12 @@ To remove Blueprint completely:
 
 ```bash
 # Global installs
-npx @lipter7/blueprint --claude --global --uninstall
-npx @lipter7/blueprint --opencode --global --uninstall
+blueprint --claude --global --uninstall
+blueprint --opencode --global --uninstall
 
 # Local installs (current project)
-npx @lipter7/blueprint --claude --local --uninstall
-npx @lipter7/blueprint --opencode --local --uninstall
+blueprint --claude --local --uninstall
+blueprint --opencode --local --uninstall
 ```
 
 This removes all Blueprint commands, agents, hooks, and settings while preserving your other configurations.
@@ -590,7 +594,7 @@ This removes all Blueprint commands, agents, hooks, and settings while preservin
 
 ## Community Ports
 
-OpenCode and Gemini CLI are now natively supported via `npx @lipter7/blueprint`.
+OpenCode and Gemini CLI are now natively supported via the `blueprint` installer.
 
 These upstream GSD community ports pioneered multi-runtime support:
 

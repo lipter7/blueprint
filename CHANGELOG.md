@@ -1,10 +1,23 @@
 # Changelog
 
-All notable changes to GSD will be documented in this file.
+All notable changes to Blueprint will be documented in this file.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+## [2.0.0] - 2026-02-11
+
+### Changed
+- **Forked from GSD (Get Shit Done)** as Blueprint
+- Renamed all references: `gsd` → `bp`, `get-shit-done` → `blueprint`, `.planning/` → `.blueprint/`
+- Package renamed from `get-shit-done-cc` to `@lipter7/blueprint`
+- Command prefix changed from `/gsd:` to `/bp:`
+- Agent prefix changed from `gsd-` to `bp-`
+- Artifact directory changed from `.planning/` to `.blueprint/`
+
+### Removed
+- `docs/workflow-example/` directory
 
 ## [1.18.0] - 2026-02-08
 
@@ -1206,7 +1219,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - YOLO mode for autonomous execution
 - Interactive mode with checkpoints
 
-[Unreleased]: https://github.com/glittercowboy/get-shit-done/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/glittercowboy/blueprint/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/glittercowboy/blueprint/releases/tag/v2.0.0
 [1.18.0]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.18.0
 [1.17.0]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.17.0
 [1.16.0]: https://github.com/glittercowboy/get-shit-done/releases/tag/v1.16.0
