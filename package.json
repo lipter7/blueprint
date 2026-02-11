@@ -1,14 +1,14 @@
 {
-  "name": "get-shit-done-cc",
+  "name": "@lipter7/blueprint",
   "version": "1.18.0",
-  "description": "A meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode and Gemini by TÂCHES.",
+  "description": "Blueprint: a meta-prompting, context engineering and spec-driven development system for Claude Code, OpenCode and Gemini CLI.",
   "bin": {
-    "get-shit-done-cc": "bin/install.js"
+    "blueprint": "bin/install.js"
   },
   "files": [
     "bin",
     "commands",
-    "get-shit-done",
+    "blueprint",
     "agents",
     "hooks/dist",
     "scripts"
@@ -27,11 +27,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/glittercowboy/get-shit-done.git"
+    "url": "git+https://github.com/glittercowboy/blueprint.git"
   },
-  "homepage": "https://github.com/glittercowboy/get-shit-done",
+  "homepage": "https://github.com/glittercowboy/blueprint",
   "bugs": {
-    "url": "https://github.com/glittercowboy/get-shit-done/issues"
+    "url": "https://github.com/glittercowboy/blueprint/issues"
   },
   "engines": {
     "node": ">=16.7.0"
@@ -43,6 +43,6 @@
   "scripts": {
     "build:hooks": "node scripts/build-hooks.js",
     "prepublishOnly": "npm run build:hooks",
-    "test": "node --test get-shit-done/bin/gsd-tools.test.js"
+    "test": "node --test blueprint/bin/blueprint-tools.test.js"
   }
 }

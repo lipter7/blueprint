@@ -107,14 +107,14 @@ function getGlobalDir(runtime, explicitDir = null) {
 }
 
 const banner = '\n' +
-  cyan + '   ██████╗ ███████╗██████╗\n' +
-  '  ██╔════╝ ██╔════╝██╔══██╗\n' +
-  '  ██║  ███╗███████╗██║  ██║\n' +
-  '  ██║   ██║╚════██║██║  ██║\n' +
-  '  ╚██████╔╝███████║██████╔╝\n' +
-  '   ╚═════╝ ╚══════╝╚═════╝' + reset + '\n' +
+  cyan + '  ██████╗ ██╗     ██╗   ██╗███████╗██████╗ ██████╗ ██╗███╗   ██╗████████╗\n' +
+  '  ██╔══██╗██║     ██║   ██║██╔════╝██╔══██╗██╔══██╗██║████╗  ██║╚══██╔══╝\n' +
+  '  ██████╔╝██║     ██║   ██║█████╗  ██████╔╝██████╔╝██║██╔██╗ ██║   ██║\n' +
+  '  ██╔══██╗██║     ██║   ██║██╔══╝  ██╔═══╝ ██╔══██╗██║██║╚██╗██║   ██║\n' +
+  '  ██████╔╝███████╗╚██████╔╝███████╗██║     ██║  ██║██║██║ ╚████║   ██║\n' +
+  '  ╚═════╝ ╚══════╝ ╚═════╝ ╚══════╝╚═╝     ╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝   ╚═╝' + reset + '\n' +
   '\n' +
-  '  Get Shit Done ' + dim + 'v' + pkg.version + reset + '\n' +
+  '  Blueprint ' + dim + 'v' + pkg.version + reset + '\n' +
   '  A meta-prompting, context engineering and spec-driven\n' +
   '  development system for Claude Code, OpenCode, and Gemini by TÂCHES.\n';
 
@@ -150,7 +150,7 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx get-shit-done-cc [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall GSD (remove all GSD files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx get-shit-done-cc\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx get-shit-done-cc --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx get-shit-done-cc --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx get-shit-done-cc --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx get-shit-done-cc --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    npx get-shit-done-cc --claude --local\n\n    ${dim}# Uninstall GSD from Claude Code globally${reset}\n    npx get-shit-done-cc --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR environment variables.\n`);
+  console.log(`  ${yellow}Usage:${reset} npx @lipter7/blueprint [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Blueprint (remove all Blueprint files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx @lipter7/blueprint\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx @lipter7/blueprint --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx @lipter7/blueprint --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx @lipter7/blueprint --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx @lipter7/blueprint --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    npx @lipter7/blueprint --claude --local\n\n    ${dim}# Uninstall Blueprint from Claude Code globally${reset}\n    npx @lipter7/blueprint --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR environment variables.\n`);
   process.exit(0);
 }
 
@@ -444,8 +444,8 @@ function convertClaudeToOpencodeFrontmatter(content) {
   convertedContent = convertedContent.replace(/\bAskUserQuestion\b/g, 'question');
   convertedContent = convertedContent.replace(/\bSlashCommand\b/g, 'skill');
   convertedContent = convertedContent.replace(/\bTodoWrite\b/g, 'todowrite');
-  // Replace /gsd:command with /gsd-command for opencode (flat command structure)
-  convertedContent = convertedContent.replace(/\/gsd:/g, '/gsd-');
+  // Replace /bp:command with /bp-command for opencode (flat command structure)
+  convertedContent = convertedContent.replace(/\/bp:/g, '/bp-');
   // Replace ~/.claude with ~/.config/opencode (OpenCode's correct config location)
   convertedContent = convertedContent.replace(/~\/\.claude\b/g, '~/.config/opencode');
 
@@ -585,12 +585,12 @@ function convertClaudeToGeminiToml(content) {
 
 /**
  * Copy commands to a flat structure for OpenCode
- * OpenCode expects: command/gsd-help.md (invoked as /gsd-help)
- * Source structure: commands/gsd/help.md
+ * OpenCode expects: command/bp-help.md (invoked as /bp-help)
+ * Source structure: commands/bp/help.md
  * 
- * @param {string} srcDir - Source directory (e.g., commands/gsd/)
+ * @param {string} srcDir - Source directory (e.g., commands/bp/)
  * @param {string} destDir - Destination directory (e.g., command/)
- * @param {string} prefix - Prefix for filenames (e.g., 'gsd')
+ * @param {string} prefix - Prefix for filenames (e.g., 'bp')
  * @param {string} pathPrefix - Path prefix for file references
  * @param {string} runtime - Target runtime ('claude' or 'opencode')
  */
@@ -599,7 +599,7 @@ function copyFlattenedCommands(srcDir, destDir, prefix, pathPrefix, runtime) {
     return;
   }
   
-  // Remove old gsd-*.md files before copying new ones
+  // Remove old bp-*.md files before copying new ones
   if (fs.existsSync(destDir)) {
     for (const file of fs.readdirSync(destDir)) {
       if (file.startsWith(`${prefix}-`) && file.endsWith('.md')) {
@@ -617,10 +617,10 @@ function copyFlattenedCommands(srcDir, destDir, prefix, pathPrefix, runtime) {
     
     if (entry.isDirectory()) {
       // Recurse into subdirectories, adding to prefix
-      // e.g., commands/gsd/debug/start.md -> command/gsd-debug-start.md
+      // e.g., commands/bp/debug/start.md -> command/bp-debug-start.md
       copyFlattenedCommands(srcPath, destDir, `${prefix}-${entry.name}`, pathPrefix, runtime);
     } else if (entry.name.endsWith('.md')) {
-      // Flatten: help.md -> gsd-help.md
+      // Flatten: help.md -> bp-help.md
       const baseName = entry.name.replace('.md', '');
       const destName = `${prefix}-${baseName}.md`;
       const destPath = path.join(destDir, destName);
@@ -692,12 +692,18 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime) {
 }
 
 /**
- * Clean up orphaned files from previous GSD versions
+ * Clean up orphaned files from previous Blueprint versions
  */
 function cleanupOrphanedFiles(configDir) {
   const orphanedFiles = [
-    'hooks/gsd-notify.sh',  // Removed in v1.6.x
-    'hooks/statusline.js',  // Renamed to gsd-statusline.js in v1.9.0
+    // Old GSD artifacts (clean up if user upgrades from GSD to Blueprint)
+    'hooks/gsd-notify.sh',       // GSD hook removed in v1.6.x
+    'hooks/gsd-statusline.js',   // GSD hook renamed to bp-statusline.js
+    'hooks/gsd-check-update.js', // GSD hook renamed to bp-check-update.js
+    'hooks/gsd-check-update.sh', // GSD hook renamed to bp-check-update.sh
+    // Blueprint orphaned files
+    'hooks/bp-notify.sh',   // Removed in v1.6.x
+    'hooks/statusline.js',  // Renamed to bp-statusline.js in v1.9.0
   ];
 
   for (const relPath of orphanedFiles) {
@@ -714,11 +720,20 @@ function cleanupOrphanedFiles(configDir) {
  */
 function cleanupOrphanedHooks(settings) {
   const orphanedHookPatterns = [
-    'gsd-notify.sh',  // Removed in v1.6.x
-    'hooks/statusline.js',  // Renamed to gsd-statusline.js in v1.9.0
-    'gsd-intel-index.js',  // Removed in v1.9.2
-    'gsd-intel-session.js',  // Removed in v1.9.2
-    'gsd-intel-prune.js',  // Removed in v1.9.2
+    // Old GSD artifacts (clean up if user upgrades from GSD to Blueprint)
+    'gsd-notify.sh',         // GSD hook
+    'gsd-statusline.js',     // GSD hook
+    'gsd-check-update.js',   // GSD hook
+    'gsd-check-update.sh',   // GSD hook
+    'gsd-intel-index.js',    // GSD hook
+    'gsd-intel-session.js',  // GSD hook
+    'gsd-intel-prune.js',    // GSD hook
+    // Blueprint orphaned hooks
+    'bp-notify.sh',          // Removed in v1.6.x
+    'hooks/statusline.js',   // Renamed to bp-statusline.js in v1.9.0
+    'bp-intel-index.js',     // Removed in v1.9.2
+    'bp-intel-session.js',   // Removed in v1.9.2
+    'bp-intel-prune.js',     // Removed in v1.9.2
   ];
 
   let cleanedHooks = false;
@@ -754,21 +769,21 @@ function cleanupOrphanedHooks(settings) {
   // Fix #330: Update statusLine if it points to old statusline.js path
   if (settings.statusLine && settings.statusLine.command &&
       settings.statusLine.command.includes('statusline.js') &&
-      !settings.statusLine.command.includes('gsd-statusline.js')) {
+      !settings.statusLine.command.includes('bp-statusline.js')) {
     // Replace old path with new path
     settings.statusLine.command = settings.statusLine.command.replace(
       /statusline\.js/,
-      'gsd-statusline.js'
+      'bp-statusline.js'
     );
-    console.log(`  ${green}✓${reset} Updated statusline path (statusline.js → gsd-statusline.js)`);
+    console.log(`  ${green}✓${reset} Updated statusline path (statusline.js → bp-statusline.js)`);
   }
 
   return settings;
 }
 
 /**
- * Uninstall GSD from the specified directory for a specific runtime
- * Removes only GSD-specific files/directories, preserves user content
+ * Uninstall Blueprint from the specified directory for a specific runtime
+ * Removes only Blueprint-specific files/directories, preserves user content
  * @param {boolean} isGlobal - Whether to uninstall from global or local
  * @param {string} runtime - Target runtime ('claude', 'opencode', 'gemini')
  */
@@ -789,7 +804,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   if (runtime === 'opencode') runtimeLabel = 'OpenCode';
   if (runtime === 'gemini') runtimeLabel = 'Gemini';
 
-  console.log(`  Uninstalling GSD from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
+  console.log(`  Uninstalling Blueprint from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
 
   // Check if target directory exists
   if (!fs.existsSync(targetDir)) {
@@ -800,61 +815,61 @@ function uninstall(isGlobal, runtime = 'claude') {
 
   let removedCount = 0;
 
-  // 1. Remove GSD commands directory
+  // 1. Remove Blueprint commands directory
   if (isOpencode) {
-    // OpenCode: remove command/gsd-*.md files
+    // OpenCode: remove command/bp-*.md files
     const commandDir = path.join(targetDir, 'command');
     if (fs.existsSync(commandDir)) {
       const files = fs.readdirSync(commandDir);
       for (const file of files) {
-        if (file.startsWith('gsd-') && file.endsWith('.md')) {
+        if (file.startsWith('bp-') && file.endsWith('.md')) {
           fs.unlinkSync(path.join(commandDir, file));
           removedCount++;
         }
       }
-      console.log(`  ${green}✓${reset} Removed GSD commands from command/`);
+      console.log(`  ${green}✓${reset} Removed Blueprint commands from command/`);
     }
   } else {
-    // Claude Code & Gemini: remove commands/gsd/ directory
-    const gsdCommandsDir = path.join(targetDir, 'commands', 'gsd');
-    if (fs.existsSync(gsdCommandsDir)) {
-      fs.rmSync(gsdCommandsDir, { recursive: true });
+    // Claude Code & Gemini: remove commands/bp/ directory
+    const bpCommandsDir = path.join(targetDir, 'commands', 'bp');
+    if (fs.existsSync(bpCommandsDir)) {
+      fs.rmSync(bpCommandsDir, { recursive: true });
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed commands/gsd/`);
+      console.log(`  ${green}✓${reset} Removed commands/bp/`);
     }
   }
 
-  // 2. Remove get-shit-done directory
-  const gsdDir = path.join(targetDir, 'get-shit-done');
-  if (fs.existsSync(gsdDir)) {
-    fs.rmSync(gsdDir, { recursive: true });
+  // 2. Remove blueprint directory
+  const bpDir = path.join(targetDir, 'blueprint');
+  if (fs.existsSync(bpDir)) {
+    fs.rmSync(bpDir, { recursive: true });
     removedCount++;
-    console.log(`  ${green}✓${reset} Removed get-shit-done/`);
+    console.log(`  ${green}✓${reset} Removed blueprint/`);
   }
 
-  // 3. Remove GSD agents (gsd-*.md files only)
+  // 3. Remove Blueprint agents (bp-*.md files only)
   const agentsDir = path.join(targetDir, 'agents');
   if (fs.existsSync(agentsDir)) {
     const files = fs.readdirSync(agentsDir);
     let agentCount = 0;
     for (const file of files) {
-      if (file.startsWith('gsd-') && file.endsWith('.md')) {
+      if (file.startsWith('bp-') && file.endsWith('.md')) {
         fs.unlinkSync(path.join(agentsDir, file));
         agentCount++;
       }
     }
     if (agentCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${agentCount} GSD agents`);
+      console.log(`  ${green}✓${reset} Removed ${agentCount} Blueprint agents`);
     }
   }
 
-  // 4. Remove GSD hooks
+  // 4. Remove Blueprint hooks
   const hooksDir = path.join(targetDir, 'hooks');
   if (fs.existsSync(hooksDir)) {
-    const gsdHooks = ['gsd-statusline.js', 'gsd-check-update.js', 'gsd-check-update.sh'];
+    const bpHooks = ['bp-statusline.js', 'bp-check-update.js', 'bp-check-update.sh'];
     let hookCount = 0;
-    for (const hook of gsdHooks) {
+    for (const hook of bpHooks) {
       const hookPath = path.join(hooksDir, hook);
       if (fs.existsSync(hookPath)) {
         fs.unlinkSync(hookPath);
@@ -863,40 +878,40 @@ function uninstall(isGlobal, runtime = 'claude') {
     }
     if (hookCount > 0) {
       removedCount++;
-      console.log(`  ${green}✓${reset} Removed ${hookCount} GSD hooks`);
+      console.log(`  ${green}✓${reset} Removed ${hookCount} Blueprint hooks`);
     }
   }
 
-  // 5. Clean up settings.json (remove GSD hooks and statusline)
+  // 5. Clean up settings.json (remove Blueprint hooks and statusline)
   const settingsPath = path.join(targetDir, 'settings.json');
   if (fs.existsSync(settingsPath)) {
     let settings = readSettings(settingsPath);
     let settingsModified = false;
 
-    // Remove GSD statusline if it references our hook
+    // Remove Blueprint statusline if it references our hook
     if (settings.statusLine && settings.statusLine.command &&
-        settings.statusLine.command.includes('gsd-statusline')) {
+        settings.statusLine.command.includes('bp-statusline')) {
       delete settings.statusLine;
       settingsModified = true;
-      console.log(`  ${green}✓${reset} Removed GSD statusline from settings`);
+      console.log(`  ${green}✓${reset} Removed Blueprint statusline from settings`);
     }
 
-    // Remove GSD hooks from SessionStart
+    // Remove Blueprint hooks from SessionStart
     if (settings.hooks && settings.hooks.SessionStart) {
       const before = settings.hooks.SessionStart.length;
       settings.hooks.SessionStart = settings.hooks.SessionStart.filter(entry => {
         if (entry.hooks && Array.isArray(entry.hooks)) {
-          // Filter out GSD hooks
-          const hasGsdHook = entry.hooks.some(h =>
-            h.command && (h.command.includes('gsd-check-update') || h.command.includes('gsd-statusline'))
+          // Filter out Blueprint hooks
+          const hasBpHook = entry.hooks.some(h =>
+            h.command && (h.command.includes('bp-check-update') || h.command.includes('bp-statusline'))
           );
-          return !hasGsdHook;
+          return !hasBpHook;
         }
         return true;
       });
       if (settings.hooks.SessionStart.length < before) {
         settingsModified = true;
-        console.log(`  ${green}✓${reset} Removed GSD hooks from settings`);
+        console.log(`  ${green}✓${reset} Removed Blueprint hooks from settings`);
       }
       // Clean up empty array
       if (settings.hooks.SessionStart.length === 0) {
@@ -923,13 +938,13 @@ function uninstall(isGlobal, runtime = 'claude') {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
         let modified = false;
 
-        // Remove GSD permission entries
+        // Remove Blueprint permission entries
         if (config.permission) {
           for (const permType of ['read', 'external_directory']) {
             if (config.permission[permType]) {
               const keys = Object.keys(config.permission[permType]);
               for (const key of keys) {
-                if (key.includes('get-shit-done')) {
+                if (key.includes('blueprint')) {
                   delete config.permission[permType][key];
                   modified = true;
                 }
@@ -948,7 +963,7 @@ function uninstall(isGlobal, runtime = 'claude') {
         if (modified) {
           fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
           removedCount++;
-          console.log(`  ${green}✓${reset} Removed GSD permissions from opencode.json`);
+          console.log(`  ${green}✓${reset} Removed Blueprint permissions from opencode.json`);
         }
       } catch (e) {
         // Ignore JSON parse errors
@@ -957,11 +972,11 @@ function uninstall(isGlobal, runtime = 'claude') {
   }
 
   if (removedCount === 0) {
-    console.log(`  ${yellow}⚠${reset} No GSD files found to remove.`);
+    console.log(`  ${yellow}⚠${reset} No Blueprint files found to remove.`);
   }
 
   console.log(`
-  ${green}Done!${reset} GSD has been uninstalled from ${runtimeLabel}.
+  ${green}Done!${reset} Blueprint has been uninstalled from ${runtimeLabel}.
   Your other files and settings have been preserved.
 `);
 }
@@ -1028,8 +1043,8 @@ function parseJsonc(content) {
 }
 
 /**
- * Configure OpenCode permissions to allow reading GSD reference docs
- * This prevents permission prompts when GSD accesses the get-shit-done directory
+ * Configure OpenCode permissions to allow reading Blueprint reference docs
+ * This prevents permission prompts when Blueprint accesses the blueprint directory
  */
 function configureOpencodePermissions() {
   // OpenCode config file is at ~/.config/opencode/opencode.json
@@ -1059,21 +1074,21 @@ function configureOpencodePermissions() {
     config.permission = {};
   }
 
-  // Build the GSD path using the actual config directory
+  // Build the Blueprint path using the actual config directory
   // Use ~ shorthand if it's in the default location, otherwise use full path
   const defaultConfigDir = path.join(os.homedir(), '.config', 'opencode');
-  const gsdPath = opencodeConfigDir === defaultConfigDir
-    ? '~/.config/opencode/get-shit-done/*'
-    : `${opencodeConfigDir.replace(/\\/g, '/')}/get-shit-done/*`;
-  
+  const bpPath = opencodeConfigDir === defaultConfigDir
+    ? '~/.config/opencode/blueprint/*'
+    : `${opencodeConfigDir.replace(/\\/g, '/')}/blueprint/*`;
+
   let modified = false;
 
   // Configure read permission
   if (!config.permission.read || typeof config.permission.read !== 'object') {
     config.permission.read = {};
   }
-  if (config.permission.read[gsdPath] !== 'allow') {
-    config.permission.read[gsdPath] = 'allow';
+  if (config.permission.read[bpPath] !== 'allow') {
+    config.permission.read[bpPath] = 'allow';
     modified = true;
   }
 
@@ -1081,8 +1096,8 @@ function configureOpencodePermissions() {
   if (!config.permission.external_directory || typeof config.permission.external_directory !== 'object') {
     config.permission.external_directory = {};
   }
-  if (config.permission.external_directory[gsdPath] !== 'allow') {
-    config.permission.external_directory[gsdPath] = 'allow';
+  if (config.permission.external_directory[bpPath] !== 'allow') {
+    config.permission.external_directory[bpPath] = 'allow';
     modified = true;
   }
 
@@ -1092,7 +1107,7 @@ function configureOpencodePermissions() {
 
   // Write config back
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
-  console.log(`  ${green}✓${reset} Configured read permission for GSD docs`);
+  console.log(`  ${green}✓${reset} Configured read permission for Blueprint docs`);
 }
 
 /**
@@ -1137,8 +1152,8 @@ function verifyFileInstalled(filePath, description) {
 // Local Patch Persistence
 // ──────────────────────────────────────────────────────
 
-const PATCHES_DIR_NAME = 'gsd-local-patches';
-const MANIFEST_NAME = 'gsd-file-manifest.json';
+const PATCHES_DIR_NAME = 'bp-local-patches';
+const MANIFEST_NAME = 'bp-file-manifest.json';
 
 /**
  * Compute SHA256 hash of file contents
@@ -1172,24 +1187,24 @@ function generateManifest(dir, baseDir) {
  * Write file manifest after installation for future modification detection
  */
 function writeManifest(configDir) {
-  const gsdDir = path.join(configDir, 'get-shit-done');
-  const commandsDir = path.join(configDir, 'commands', 'gsd');
+  const bpDir = path.join(configDir, 'blueprint');
+  const commandsDir = path.join(configDir, 'commands', 'bp');
   const agentsDir = path.join(configDir, 'agents');
   const manifest = { version: pkg.version, timestamp: new Date().toISOString(), files: {} };
 
-  const gsdHashes = generateManifest(gsdDir);
-  for (const [rel, hash] of Object.entries(gsdHashes)) {
-    manifest.files['get-shit-done/' + rel] = hash;
+  const bpHashes = generateManifest(bpDir);
+  for (const [rel, hash] of Object.entries(bpHashes)) {
+    manifest.files['blueprint/' + rel] = hash;
   }
   if (fs.existsSync(commandsDir)) {
     const cmdHashes = generateManifest(commandsDir);
     for (const [rel, hash] of Object.entries(cmdHashes)) {
-      manifest.files['commands/gsd/' + rel] = hash;
+      manifest.files['commands/bp/' + rel] = hash;
     }
   }
   if (fs.existsSync(agentsDir)) {
     for (const file of fs.readdirSync(agentsDir)) {
-      if (file.startsWith('gsd-') && file.endsWith('.md')) {
+      if (file.startsWith('bp-') && file.endsWith('.md')) {
         manifest.files['agents/' + file] = fileHash(path.join(agentsDir, file));
       }
     }
@@ -1200,8 +1215,8 @@ function writeManifest(configDir) {
 }
 
 /**
- * Detect user-modified GSD files by comparing against install manifest.
- * Backs up modified files to gsd-local-patches/ for reapply after update.
+ * Detect user-modified Blueprint files by comparing against install manifest.
+ * Backs up modified files to bp-local-patches/ for reapply after update.
  */
 function saveLocalPatches(configDir) {
   const manifestPath = path.join(configDir, MANIFEST_NAME);
@@ -1232,7 +1247,7 @@ function saveLocalPatches(configDir) {
       files: modified
     };
     fs.writeFileSync(path.join(patchesDir, 'backup-meta.json'), JSON.stringify(meta, null, 2));
-    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified GSD file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
+    console.log('  ' + yellow + 'i' + reset + '  Found ' + modified.length + ' locally modified Blueprint file(s) — backed up to ' + PATCHES_DIR_NAME + '/');
     for (const f of modified) {
       console.log('     ' + dim + f + reset);
     }
@@ -1259,7 +1274,7 @@ function reportLocalPatches(configDir) {
     }
     console.log('');
     console.log('  Your modifications are saved in ' + cyan + PATCHES_DIR_NAME + '/' + reset);
-    console.log('  Run ' + cyan + '/gsd:reapply-patches' + reset + ' to merge them into the new version.');
+    console.log('  Run ' + cyan + '/bp:reapply-patches' + reset + ' to merge them into the new version.');
     console.log('  Or manually compare and merge the files.');
     console.log('');
   }
@@ -1297,7 +1312,7 @@ function install(isGlobal, runtime = 'claude') {
   // Track installation failures
   const failures = [];
 
-  // Save any locally modified GSD files before they get wiped
+  // Save any locally modified Blueprint files before they get wiped
   saveLocalPatches(targetDir);
 
   // Clean up orphaned files from previous versions
@@ -1310,38 +1325,38 @@ function install(isGlobal, runtime = 'claude') {
     const commandDir = path.join(targetDir, 'command');
     fs.mkdirSync(commandDir, { recursive: true });
     
-    // Copy commands/gsd/*.md as command/gsd-*.md (flatten structure)
-    const gsdSrc = path.join(src, 'commands', 'gsd');
-    copyFlattenedCommands(gsdSrc, commandDir, 'gsd', pathPrefix, runtime);
-    if (verifyInstalled(commandDir, 'command/gsd-*')) {
-      const count = fs.readdirSync(commandDir).filter(f => f.startsWith('gsd-')).length;
+    // Copy commands/bp/*.md as command/bp-*.md (flatten structure)
+    const bpSrc = path.join(src, 'commands', 'bp');
+    copyFlattenedCommands(bpSrc, commandDir, 'bp', pathPrefix, runtime);
+    if (verifyInstalled(commandDir, 'command/bp-*')) {
+      const count = fs.readdirSync(commandDir).filter(f => f.startsWith('bp-')).length;
       console.log(`  ${green}✓${reset} Installed ${count} commands to command/`);
     } else {
-      failures.push('command/gsd-*');
+      failures.push('command/bp-*');
     }
   } else {
     // Claude Code & Gemini: nested structure in commands/ directory
     const commandsDir = path.join(targetDir, 'commands');
     fs.mkdirSync(commandsDir, { recursive: true });
     
-    const gsdSrc = path.join(src, 'commands', 'gsd');
-    const gsdDest = path.join(commandsDir, 'gsd');
-    copyWithPathReplacement(gsdSrc, gsdDest, pathPrefix, runtime);
-    if (verifyInstalled(gsdDest, 'commands/gsd')) {
-      console.log(`  ${green}✓${reset} Installed commands/gsd`);
+    const bpSrc = path.join(src, 'commands', 'bp');
+    const bpDest = path.join(commandsDir, 'bp');
+    copyWithPathReplacement(bpSrc, bpDest, pathPrefix, runtime);
+    if (verifyInstalled(bpDest, 'commands/bp')) {
+      console.log(`  ${green}✓${reset} Installed commands/bp`);
     } else {
-      failures.push('commands/gsd');
+      failures.push('commands/bp');
     }
   }
 
-  // Copy get-shit-done skill with path replacement
-  const skillSrc = path.join(src, 'get-shit-done');
-  const skillDest = path.join(targetDir, 'get-shit-done');
+  // Copy blueprint skill with path replacement
+  const skillSrc = path.join(src, 'blueprint');
+  const skillDest = path.join(targetDir, 'blueprint');
   copyWithPathReplacement(skillSrc, skillDest, pathPrefix, runtime);
-  if (verifyInstalled(skillDest, 'get-shit-done')) {
-    console.log(`  ${green}✓${reset} Installed get-shit-done`);
+  if (verifyInstalled(skillDest, 'blueprint')) {
+    console.log(`  ${green}✓${reset} Installed blueprint`);
   } else {
-    failures.push('get-shit-done');
+    failures.push('blueprint');
   }
 
   // Copy agents to agents directory
@@ -1350,10 +1365,10 @@ function install(isGlobal, runtime = 'claude') {
     const agentsDest = path.join(targetDir, 'agents');
     fs.mkdirSync(agentsDest, { recursive: true });
 
-    // Remove old GSD agents (gsd-*.md) before copying new ones
+    // Remove old Blueprint agents (bp-*.md) before copying new ones
     if (fs.existsSync(agentsDest)) {
       for (const file of fs.readdirSync(agentsDest)) {
-        if (file.startsWith('gsd-') && file.endsWith('.md')) {
+        if (file.startsWith('bp-') && file.endsWith('.md')) {
           fs.unlinkSync(path.join(agentsDest, file));
         }
       }
@@ -1386,7 +1401,7 @@ function install(isGlobal, runtime = 'claude') {
 
   // Copy CHANGELOG.md
   const changelogSrc = path.join(src, 'CHANGELOG.md');
-  const changelogDest = path.join(targetDir, 'get-shit-done', 'CHANGELOG.md');
+  const changelogDest = path.join(targetDir, 'blueprint', 'CHANGELOG.md');
   if (fs.existsSync(changelogSrc)) {
     fs.copyFileSync(changelogSrc, changelogDest);
     if (verifyFileInstalled(changelogDest, 'CHANGELOG.md')) {
@@ -1397,7 +1412,7 @@ function install(isGlobal, runtime = 'claude') {
   }
 
   // Write VERSION file
-  const versionDest = path.join(targetDir, 'get-shit-done', 'VERSION');
+  const versionDest = path.join(targetDir, 'blueprint', 'VERSION');
   fs.writeFileSync(versionDest, pkg.version);
   if (verifyFileInstalled(versionDest, 'VERSION')) {
     console.log(`  ${green}✓${reset} Wrote VERSION (${pkg.version})`);
@@ -1435,11 +1450,11 @@ function install(isGlobal, runtime = 'claude') {
   const settingsPath = path.join(targetDir, 'settings.json');
   const settings = cleanupOrphanedHooks(readSettings(settingsPath));
   const statuslineCommand = isGlobal
-    ? buildHookCommand(targetDir, 'gsd-statusline.js')
-    : 'node ' + dirName + '/hooks/gsd-statusline.js';
+    ? buildHookCommand(targetDir, 'bp-statusline.js')
+    : 'node ' + dirName + '/hooks/bp-statusline.js';
   const updateCheckCommand = isGlobal
-    ? buildHookCommand(targetDir, 'gsd-check-update.js')
-    : 'node ' + dirName + '/hooks/gsd-check-update.js';
+    ? buildHookCommand(targetDir, 'bp-check-update.js')
+    : 'node ' + dirName + '/hooks/bp-check-update.js';
 
   // Enable experimental agents for Gemini CLI (required for custom sub-agents)
   if (isGemini) {
@@ -1461,11 +1476,11 @@ function install(isGlobal, runtime = 'claude') {
       settings.hooks.SessionStart = [];
     }
 
-    const hasGsdUpdateHook = settings.hooks.SessionStart.some(entry =>
-      entry.hooks && entry.hooks.some(h => h.command && h.command.includes('gsd-check-update'))
+    const hasBpUpdateHook = settings.hooks.SessionStart.some(entry =>
+      entry.hooks && entry.hooks.some(h => h.command && h.command.includes('bp-check-update'))
     );
 
-    if (!hasGsdUpdateHook) {
+    if (!hasBpUpdateHook) {
       settings.hooks.SessionStart.push({
         hooks: [
           {
@@ -1514,7 +1529,7 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   if (runtime === 'opencode') program = 'OpenCode';
   if (runtime === 'gemini') program = 'Gemini';
 
-  const command = isOpencode ? '/gsd-help' : '/gsd:help';
+  const command = isOpencode ? '/bp-help' : '/bp:help';
   console.log(`
   ${green}Done!${reset} Launch ${program} and run ${cyan}${command}${reset}.
 
@@ -1557,13 +1572,13 @@ function handleStatusline(settings, isInteractive, callback) {
   Your current statusline:
     ${dim}command: ${existingCmd}${reset}
 
-  GSD includes a statusline showing:
+  Blueprint includes a statusline showing:
     • Model name
     • Current task (from todo list)
     • Context window usage (color-coded)
 
   ${cyan}1${reset}) Keep existing
-  ${cyan}2${reset}) Replace with GSD statusline
+  ${cyan}2${reset}) Replace with Blueprint statusline
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
@@ -1660,7 +1675,7 @@ function promptLocation(runtimes) {
 }
 
 /**
- * Install GSD for all selected runtimes
+ * Install Blueprint for all selected runtimes
  */
 function installAllRuntimes(runtimes, isGlobal, isInteractive) {
   const results = [];

@@ -55,9 +55,16 @@ Blueprint takes the simplest possible migration path: clean break from GSD, no c
 
 **User's reasoning (revised):** After investigating the scope, the user determined that npm distribution adds essentially zero extra work — the infrastructure already exists in the fork. The only changes are the package name and `bin` entry in `package.json`, plus running `npm publish`.
 
+**Package details:**
+- **Scope:** `@lipter7` (npm Free plan, unlimited public packages)
+- **Package name:** `@lipter7/blueprint`
+- **Install command:** `npx @lipter7/blueprint`
+- **Publish command:** `npm publish --access public` (scoped packages default to private, `--access public` required on Free plan)
+- **Registry URL:** `https://npmjs.com/package/@lipter7/blueprint`
+
 **What changes in `package.json`:**
-- `"name"`: `"get-shit-done-cc"` → new Blueprint package name (TBD — e.g., `"blueprint-dev"`, `"@scope/blueprint"`)
-- `"bin"`: `{ "get-shit-done-cc": "bin/install.js" }` → `{ "<blueprint-cli-name>": "bin/install.js" }`
+- `"name"`: `"get-shit-done-cc"` → `"@lipter7/blueprint"`
+- `"bin"`: `{ "get-shit-done-cc": "bin/install.js" }` → `{ "blueprint": "bin/install.js" }`
 - `"description"`, `"repository"`, `"homepage"`, `"bugs"`: Updated for Blueprint
 - `"files"` array: Updated directory names (`get-shit-done` → `blueprint`)
 
@@ -87,10 +94,10 @@ Blueprint takes the simplest possible migration path: clean break from GSD, no c
 **How the existing update works (unchanged for Blueprint):**
 1. `/bp:update` command triggers `workflows/update.md`
 2. Workflow detects install location (local vs global) via VERSION file
-3. Checks npm registry for latest version (`npm view <blueprint-package> version`)
+3. Checks npm registry for latest version (`npm view @lipter7/blueprint version`)
 4. Compares versions, fetches changelog from GitHub
 5. Shows what's new, asks user confirmation via `AskUserQuestion`
-6. Runs clean install: `npx <blueprint-package> --local` or `--global`
+6. Runs clean install: `npx @lipter7/blueprint --local` or `--global`
 7. Clears update cache, checks for local patches
 8. Offers `/bp:reapply-patches` if patches detected
 
@@ -176,7 +183,7 @@ Based on codebase investigation, the GSD → Blueprint rename touches:
 
 1. **Clean break** — No GSD coexistence, no migration tooling, no `.planning/` support
 2. **All naming** — `gsd` → `bp`, `GSD` → `Blueprint`, `get-shit-done` → `blueprint`, `.planning/` → `.blueprint/`
-3. **npm package name** — New package name (TBD), new `bin` entry
+3. **npm package name** — `@lipter7/blueprint`, publish with `npm publish --access public`
 4. **Cursor install path** — No statusline hook, no session hooks (deferred to v2)
 5. **`docs/workflow-example/`** — Removed
 
@@ -219,7 +226,7 @@ Based on codebase investigation, the GSD → Blueprint rename touches:
 - **Installer Cursor path** — Per Item 4, `convertClaudeToCursorSkill()` and `convertClaudeToCursorAgent()` need to be implemented. The `--cursor` flag and its install path are new code.
 - **MODEL_PROFILES sync** — After agent renames, the model routing table in gsd-tools.js (→ blueprint-tools.js) must be updated in lockstep.
 - **Test suite updates** — `gsd-tools.test.js` (~2000 lines) needs all references updated and tests passing.
-- **npm package name selection** — Need to verify the chosen name is available on npmjs.com.
+- **npm package name** — Confirmed: `@lipter7/blueprint` (available, Free plan, `npm publish --access public`).
 
 ### What's Its Own Phase
 
