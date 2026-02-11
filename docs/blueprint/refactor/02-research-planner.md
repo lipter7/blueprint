@@ -153,6 +153,64 @@ A runtime compatibility matrix: what's identical, what needs conversion, what th
 
 ---
 
+## Area 4a: AskUserQuestion → AskQuestion Conversion Audit
+
+**Depends on:** Area 4 (runtime compatibility decisions)
+**Parent result:** `research-results/item-4.md`, Decision #4
+
+Area 4 established that `AskUserQuestion` references must be converted to explicit `AskQuestion` tool instructions for Cursor. But the conversion cannot be a generic boilerplate injection -- each usage serves a specific purpose in a specific workflow. This sub-research audits every usage to design context-appropriate conversions.
+
+### Questions to Answer
+
+- Where exactly does `AskUserQuestion` appear in the current system? (frontmatter `allowed-tools`, inline prompt references, workflow instructions, agent prompts)
+- For each occurrence, what is the *specific interaction* it enables? (e.g., "ask user to select research focus areas", "confirm roadmap phase ordering", "checkpoint:decision gate")
+- What information does each `AskUserQuestion` call need to present to the user? (options, context, what happens with the response)
+- What is the minimum instruction pattern that reliably makes Cursor's agent use `AskQuestion` in each context?
+- Can a reusable pattern template cover most cases, or does each context need bespoke instructions?
+
+### What to Investigate
+
+- `grep -r "AskUserQuestion" agents/ commands/ get-shit-done/` to find every occurrence
+- For each file containing `AskUserQuestion`, read the surrounding context to understand the workflow purpose
+- Review `get-shit-done/workflows/*.md` for workflow steps that involve user interaction
+- Review `get-shit-done/references/checkpoints.md` for the checkpoint protocol (which likely drives many `AskUserQuestion` calls)
+- Review `get-shit-done/references/questioning.md` for existing questioning patterns
+- Check whether `AskUserQuestion` is used differently in commands vs agents vs workflows (frontmatter declaration vs inline instruction)
+
+### Deliverable
+
+A complete audit table: every file containing `AskUserQuestion`, what the interaction does, and a designed `AskQuestion` instruction pattern for the Cursor conversion. This becomes the specification for the installer's `convertClaudeToCursorSkill()` and `convertClaudeToCursorAgent()` functions.
+
+---
+
+## Area 4b: Cursor Skills Invocation Model (`disable-model-invocation`)
+
+**Depends on:** Area 4 (runtime compatibility decisions)
+**Parent result:** `research-results/item-4.md`, Decision #2
+
+Area 4 decided Blueprint commands become Cursor Skills. But should all skills use `disable-model-invocation: true` (explicit `/name` invocation only) or should some allow Cursor's agent to auto-invoke them based on context?
+
+### Questions to Answer
+
+- Can Blueprint commands/skills benefit from auto-invocation? For example, if a user says "let's plan phase 3", could Cursor auto-invoke the `bp-plan-phase` skill without the user typing `/bp-plan-phase`?
+- Is there a risk of unwanted auto-invocation? Could Cursor incorrectly decide to invoke a Blueprint skill during unrelated work?
+- Do any Blueprint workflows depend on commands invoking other commands? If so, `disable-model-invocation: true` would break that chain.
+- How does Cursor's agent decide when a skill is relevant? Does it use just the `description` field, or does it also parse the skill body?
+- What is the actual user experience difference between explicit and auto-invocable skills in Cursor's UI?
+
+### What to Investigate
+
+- Read Cursor docs on `disable-model-invocation` behavior and how the agent decides skill relevance
+- Check whether any GSD commands reference or invoke other commands (e.g., does `execute-phase` suggest running `verify-work` afterward?)
+- Review the GSD workflow files in `get-shit-done/workflows/` for cross-command references
+- Test in Cursor: create a simple skill with and without `disable-model-invocation` and observe when/how it gets invoked
+
+### Deliverable
+
+A decision on the `disable-model-invocation` default for Blueprint skills, with justification. May result in a split: some skills always explicit, others auto-invocable.
+
+---
+
 ## Area 5: Scope and Command Set Validation
 
 The existing phase docs proposed 8 commands (6 core + 2 utility). We need to validate this against the enhanced interaction model.
@@ -262,6 +320,8 @@ These areas are listed roughly in dependency order for planning:
 1. **Interaction Model Design** -- Everything else depends on this. The interaction model determines the agent architecture, command set, and artifact design.
 2. **Agent Architecture** -- Determines what gets built and how work is distributed.
 3. **Cursor and Claude Code Compatibility** -- Hard constraints that affect all implementation.
+   - **4a: AskQuestion Conversion Audit** -- Depends on Area 4. Must complete before installer implementation.
+   - **4b: Skills Invocation Model** -- Depends on Area 4. Must complete before installer implementation.
 4. **Scope and Command Set** -- Depends on interaction model + agent architecture + runtime constraints.
 5. **Template and Artifact Design** -- Depends on command set + interaction model.
 6. **Codebase Staleness Detection** -- Independent feature, can be designed in parallel.
