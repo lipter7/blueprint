@@ -265,6 +265,31 @@ Commit the codebase map:
 node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: map existing codebase" --files .blueprint/codebase/*.md
 ```
 
+Continue to update_mapping_metadata.
+</step>
+
+<step name="update_mapping_metadata">
+Write mapping metadata to config.json so staleness detection can track when the last mapping occurred:
+
+```bash
+# Get current commit hash
+COMMIT=$(git rev-parse --short HEAD)
+
+# Get current timestamp
+TIMESTAMP=$(node ~/.claude/blueprint/bin/blueprint-tools.js current-timestamp full)
+
+# Write mapping metadata
+node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_at" "$TIMESTAMP"
+node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_commit" "$COMMIT"
+node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.docs_produced" '["STACK.md","ARCHITECTURE.md","STRUCTURE.md","CONVENTIONS.md","TESTING.md","INTEGRATIONS.md","CONCERNS.md"]'
+```
+
+Commit the config update:
+
+```bash
+node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: update codebase mapping metadata" --files .blueprint/config.json
+```
+
 Continue to offer_next.
 </step>
 
@@ -323,5 +348,6 @@ End workflow.
 - Read agent output files to collect confirmations
 - All 7 codebase documents exist
 - Clear completion summary with line counts
+- config.json updated with codebase_mapping metadata (last_mapped_at, last_mapped_commit, docs_produced)
 - User offered clear next steps in Blueprint style
 </success_criteria>

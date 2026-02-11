@@ -23,6 +23,7 @@ const hasLocal = args.includes('--local') || args.includes('-l');
 const hasOpencode = args.includes('--opencode');
 const hasClaude = args.includes('--claude');
 const hasGemini = args.includes('--gemini');
+const hasCursor = args.includes('--cursor');
 const hasBoth = args.includes('--both'); // Legacy flag, keeps working
 const hasAll = args.includes('--all');
 const hasUninstall = args.includes('--uninstall') || args.includes('-u');
@@ -30,19 +31,21 @@ const hasUninstall = args.includes('--uninstall') || args.includes('-u');
 // Runtime selection - can be set by flags or interactive prompt
 let selectedRuntimes = [];
 if (hasAll) {
-  selectedRuntimes = ['claude', 'opencode', 'gemini'];
+  selectedRuntimes = ['claude', 'opencode', 'gemini', 'cursor'];
 } else if (hasBoth) {
   selectedRuntimes = ['claude', 'opencode'];
 } else {
   if (hasOpencode) selectedRuntimes.push('opencode');
   if (hasClaude) selectedRuntimes.push('claude');
   if (hasGemini) selectedRuntimes.push('gemini');
+  if (hasCursor) selectedRuntimes.push('cursor');
 }
 
 // Helper to get directory name for a runtime (used for local/project installs)
 function getDirName(runtime) {
   if (runtime === 'opencode') return '.opencode';
   if (runtime === 'gemini') return '.gemini';
+  if (runtime === 'cursor') return '.cursor';
   return '.claude';
 }
 
@@ -95,7 +98,18 @@ function getGlobalDir(runtime, explicitDir = null) {
     }
     return path.join(os.homedir(), '.gemini');
   }
-  
+
+  if (runtime === 'cursor') {
+    // Cursor: --config-dir > CURSOR_CONFIG_DIR > ~/.cursor
+    if (explicitDir) {
+      return expandTilde(explicitDir);
+    }
+    if (process.env.CURSOR_CONFIG_DIR) {
+      return expandTilde(process.env.CURSOR_CONFIG_DIR);
+    }
+    return path.join(os.homedir(), '.cursor');
+  }
+
   // Claude Code: --config-dir > CLAUDE_CONFIG_DIR > ~/.claude
   if (explicitDir) {
     return expandTilde(explicitDir);
@@ -116,7 +130,7 @@ const banner = '\n' +
   '\n' +
   '  Blueprint ' + dim + 'v' + pkg.version + reset + '\n' +
   '  A meta-prompting, context engineering and spec-driven\n' +
-  '  development system for Claude Code, OpenCode, and Gemini by TÂCHES.\n';
+  '  development system for Claude Code, OpenCode, Gemini, and Cursor by TÂCHES.\n';
 
 // Parse --config-dir argument
 function parseConfigDirArg() {
@@ -150,7 +164,7 @@ console.log(banner);
 
 // Show help if requested
 if (hasHelp) {
-  console.log(`  ${yellow}Usage:${reset} npx @lipter7/blueprint [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Blueprint (remove all Blueprint files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx @lipter7/blueprint\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx @lipter7/blueprint --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx @lipter7/blueprint --gemini --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx @lipter7/blueprint --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx @lipter7/blueprint --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    npx @lipter7/blueprint --claude --local\n\n    ${dim}# Uninstall Blueprint from Claude Code globally${reset}\n    npx @lipter7/blueprint --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR environment variables.\n`);
+  console.log(`  ${yellow}Usage:${reset} npx @lipter7/blueprint [options]\n\n  ${yellow}Options:${reset}\n    ${cyan}-g, --global${reset}              Install globally (to config directory)\n    ${cyan}-l, --local${reset}               Install locally (to current directory)\n    ${cyan}--claude${reset}                  Install for Claude Code only\n    ${cyan}--opencode${reset}                Install for OpenCode only\n    ${cyan}--gemini${reset}                  Install for Gemini only\n    ${cyan}--cursor${reset}                  Install for Cursor only\n    ${cyan}--all${reset}                     Install for all runtimes\n    ${cyan}-u, --uninstall${reset}           Uninstall Blueprint (remove all Blueprint files)\n    ${cyan}-c, --config-dir <path>${reset}   Specify custom config directory\n    ${cyan}-h, --help${reset}                Show this help message\n    ${cyan}--force-statusline${reset}        Replace existing statusline config\n\n  ${yellow}Examples:${reset}\n    ${dim}# Interactive install (prompts for runtime and location)${reset}\n    npx @lipter7/blueprint\n\n    ${dim}# Install for Claude Code globally${reset}\n    npx @lipter7/blueprint --claude --global\n\n    ${dim}# Install for Gemini globally${reset}\n    npx @lipter7/blueprint --gemini --global\n\n    ${dim}# Install for Cursor globally${reset}\n    npx @lipter7/blueprint --cursor --global\n\n    ${dim}# Install for all runtimes globally${reset}\n    npx @lipter7/blueprint --all --global\n\n    ${dim}# Install to custom config directory${reset}\n    npx @lipter7/blueprint --claude --global --config-dir ~/.claude-bc\n\n    ${dim}# Install to current project only${reset}\n    npx @lipter7/blueprint --claude --local\n\n    ${dim}# Uninstall Blueprint from Claude Code globally${reset}\n    npx @lipter7/blueprint --claude --global --uninstall\n\n  ${yellow}Notes:${reset}\n    The --config-dir option is useful when you have multiple configurations.\n    It takes priority over CLAUDE_CONFIG_DIR / GEMINI_CONFIG_DIR / CURSOR_CONFIG_DIR environment variables.\n`);
   process.exit(0);
 }
 
@@ -217,6 +231,16 @@ function getCommitAttribution(runtime) {
   } else if (runtime === 'gemini') {
     // Gemini: check gemini settings.json for attribution config
     const settings = readSettings(path.join(getGlobalDir('gemini', explicitConfigDir), 'settings.json'));
+    if (!settings.attribution || settings.attribution.commit === undefined) {
+      result = undefined;
+    } else if (settings.attribution.commit === '') {
+      result = null;
+    } else {
+      result = settings.attribution.commit;
+    }
+  } else if (runtime === 'cursor') {
+    // Cursor: check cursor settings.json for attribution config
+    const settings = readSettings(path.join(getGlobalDir('cursor', explicitConfigDir), 'settings.json'));
     if (!settings.attribution || settings.attribution.commit === undefined) {
       result = undefined;
     } else if (settings.attribution.commit === '') {
@@ -307,6 +331,438 @@ const claudeToGeminiTools = {
   TodoWrite: 'write_todos',
   AskUserQuestion: 'ask_user',
 };
+
+// Cursor skill ordering — numbered prefixes for palette sorting
+const CURSOR_SKILL_ORDER = {
+  'map-codebase':           1,
+  'new-project':            2,
+  'new-milestone':          3,
+  'discuss-phase':          4,
+  'research-phase':         5,
+  'plan-phase':             6,
+  'execute-phase':          7,
+  'verify-work':            8,
+  'audit-milestone':        9,
+  'plan-milestone-gaps':    10,
+  'complete-milestone':     11,
+  'add-phase':              12,
+  'insert-phase':           13,
+  'remove-phase':           14,
+  'progress':               15,
+  'resume-work':            16,
+  'pause-work':             17,
+  'quick':                  18,
+  'debug':                  19,
+  'list-phase-assumptions': 20,
+  'add-todo':               21,
+  'check-todos':            22,
+  'settings':               23,
+  'set-profile':            24,
+  'update':                 25,
+  'reapply-patches':        26,
+  'help':                   27,
+  'join-discord':           28,
+};
+
+const GATE_TEMPLATES = {
+  confidence_gate: `
+<cursor_interaction type="confidence_gate" id="{gate_id}">
+IMPORTANT: You MUST use the AskQuestion tool here. Do NOT proceed without user input.
+
+Present the following to the user via AskQuestion:
+- Context: {what_was_just_completed}
+- Options: {confidence_options}
+- Wait for response before continuing
+
+Based on user's choice:
+- If "{option_a}": {action_a}
+- If "{option_b}": {action_b}
+- If user provides custom input: incorporate their guidance and proceed accordingly
+</cursor_interaction>`,
+
+  decision_gate: `
+<cursor_interaction type="decision_gate" id="{gate_id}">
+IMPORTANT: You MUST use the AskQuestion tool here. Do NOT proceed without user input.
+
+Present the following choice to the user via AskQuestion:
+- Context: {decision_context}
+- Options:
+  1. {option_1} — {description_1}
+  2. {option_2} — {description_2}
+  {option_3_line}
+- Wait for response before continuing
+
+Route based on user's choice:
+- "{option_1}": {action_1}
+- "{option_2}": {action_2}
+- Custom input: {fallback_action}
+</cursor_interaction>`,
+
+  continuation_gate: `
+<cursor_interaction type="continuation_gate" id="{gate_id}">
+IMPORTANT: You MUST use the AskQuestion tool here. Do NOT proceed without user input.
+
+Ask the user via AskQuestion:
+- Context: {current_state_summary}
+- Options:
+  1. {proceed_option} — {proceed_description}
+  2. {continue_option} — {continue_description}
+- Wait for response before continuing
+
+If "{continue_option}": loop back to {loop_target_step}
+If "{proceed_option}": continue to next step
+</cursor_interaction>`,
+
+  action_gate: `
+<cursor_interaction type="action_gate" id="{gate_id}">
+IMPORTANT: You MUST use the AskQuestion tool here. Do NOT proceed without user input.
+
+Present available actions to the user via AskQuestion:
+- Context: {action_context}
+- Options:
+  1. {action_1} — {description_1}
+  2. {action_2} — {description_2}
+  3. {action_3} — {description_3}
+  {action_4_line}
+- Wait for response before continuing
+
+Execute the user's chosen action:
+- "{action_1}": {execute_1}
+- "{action_2}": {execute_2}
+- "{action_3}": {execute_3}
+- Custom input: {fallback_action}
+</cursor_interaction>`
+};
+
+const DISCUSS_DEEP_DIVE_BLOCK = `
+<cursor_interaction type="deep_dive" id="discuss-area-questioning">
+IMPORTANT: For EACH selected gray area, you MUST conduct a focused discussion using AskQuestion.
+
+For each area in the selected list:
+  1. Ask 4 specific decision questions about this area using AskQuestion
+     - Each question should have 2-3 concrete options
+     - Include a "You decide" option when the decision is genuinely discretionary
+     - Wait for each response before asking the next question
+  2. After all 4 questions for an area, use AskQuestion to ask:
+     - "More questions about {area_name}?" / "Move to next area" / "Done discussing"
+  3. If "More questions": ask additional questions about this area
+  4. If "Move to next area": proceed to the next selected area
+  5. If "Done discussing": stop discussion, move to CONTEXT.md creation
+
+Record every user decision. Each answer populates a decision record in CONTEXT.md.
+Do NOT skip areas. Do NOT proceed to CONTEXT.md creation until the user says "Done" or all areas are covered.
+</cursor_interaction>`;
+
+const SETTINGS_CONFIG_BLOCK = `
+<cursor_interaction type="configuration_chain" id="settings-configuration">
+IMPORTANT: You MUST ask ALL configuration questions using AskQuestion, one at a time. Do NOT skip any.
+
+Ask each question in sequence via AskQuestion. Wait for each response before asking the next.
+
+1. Per-Agent Model Configuration:
+   For each of the 11 agent roles, present available models and let the user select:
+   - bp-planner, bp-executor, bp-verifier, bp-debugger, bp-codebase-mapper
+   - bp-phase-researcher, bp-project-researcher, bp-research-synthesizer
+   - bp-roadmapper, bp-plan-checker, bp-integration-checker
+
+2. Plan Researcher (research before planning):
+   - "Yes" — Run phase researcher before planner
+   - "No" — Skip research, plan from existing context
+
+3. Plan Checker (verify plans after creation):
+   - "Yes" — Run plan checker after planner
+   - "No" — Skip plan verification
+
+4. Execution Verifier (verify after execution):
+   - "Yes" — Run verifier after executor
+   - "No" — Skip execution verification
+
+5. Git Branching Strategy:
+   - "None (Recommended)" — All work on current branch
+   - "Per Phase" — Create branch per phase
+   - "Per Milestone" — Create branch per milestone
+
+After all responses are collected, write the configuration to .blueprint/config.json with both agent_models and workflow settings.
+</cursor_interaction>`;
+
+const DEBUG_SYMPTOMS_BLOCK = `
+<cursor_interaction type="symptom_gathering" id="debug-symptoms">
+IMPORTANT: You MUST ask ALL 5 diagnostic questions using AskQuestion, one at a time. Do NOT skip any. Do NOT start debugging until all 5 are answered.
+
+Ask each question in sequence via AskQuestion:
+
+1. Expected behavior: "What should happen? Describe the correct behavior."
+   (Freeform response — no predefined options)
+
+2. Actual behavior: "What happens instead? Describe what you observe."
+   (Freeform response)
+
+3. Error messages: "Are there any error messages? Paste or describe them."
+   (Freeform response — "None" is valid)
+
+4. Timeline: "When did this start? Has it ever worked correctly?"
+   (Freeform response)
+
+5. Reproduction: "How do you trigger this issue? What steps reproduce it?"
+   (Freeform response)
+
+After collecting all 5 responses, populate the debug session file at .blueprint/debug/{slug}.md with the gathered information, then proceed to hypothesis formation.
+</cursor_interaction>`;
+
+// Cursor interaction map — defines where AskUserQuestion blocks appear in workflow files
+// and how to convert them to Cursor-compatible AskQuestion interaction blocks.
+// Each entry has: id, type (gate template or bespoke), marker (regex matching the source block),
+// and either params (for gate templates) or block (for bespoke replacements).
+const CURSOR_INTERACTION_MAP = {
+  'workflows/discovery-phase.md': [
+    {
+      id: 'discovery-confidence',
+      type: 'confidence_gate',
+      marker: /If confidence is LOW:\nUse AskUserQuestion:[\s\S]*?- "Pause" - I need to think about this/,
+      params: {
+        gate_id: 'discovery-confidence',
+        what_was_just_completed: 'Discovery research completed but confidence is LOW',
+        confidence_options: '"Dig deeper" to do more research, or "Proceed anyway" to accept uncertainty',
+        option_a: 'Dig deeper',
+        action_a: 'Do more research before planning',
+        option_b: 'Proceed anyway',
+        action_b: 'Accept uncertainty, plan with caveats'
+      }
+    }
+  ],
+  'workflows/discuss-phase.md': [
+    {
+      id: 'discuss-check-existing',
+      type: 'decision_gate',
+      marker: /\*\*If exists:\*\*\nUse AskUserQuestion:[\s\S]*?If "Skip": Exit workflow/,
+      params: {
+        gate_id: 'discuss-check-existing',
+        decision_context: 'Phase already has existing context (CONTEXT.md found)',
+        option_1: 'Update it',
+        description_1: 'Review and revise existing context',
+        option_2: 'View it',
+        description_2: 'Show me what\'s there',
+        option_3_line: '3. Skip — Use existing context as-is',
+        action_1: 'Load existing context, continue to analyze_phase',
+        action_2: 'Display CONTEXT.md, then offer update/skip',
+        fallback_action: 'Exit workflow (treat as skip)'
+      }
+    },
+    {
+      id: 'discuss-deep-dive',
+      type: 'bespoke',
+      marker: /\*\*Then use AskUserQuestion \(multiSelect: true\):\*\*[\s\S]*?Continue to discuss_areas with selected areas\.\n<\/step>\n\n<step name="discuss_areas">[\s\S]*?Track deferred ideas internally\.\n<\/step>/,
+      block: DISCUSS_DEEP_DIVE_BLOCK
+    },
+    {
+      id: 'discuss-verify-context',
+      type: 'confidence_gate',
+      marker: /AskUserQuestion:\n- header: "Context"\n- question: "Does this accurately capture what you described\?"\n- options:[\s\S]*?- "Review full file" — Show me the raw file first/,
+      params: {
+        gate_id: 'discuss-verify-context',
+        what_was_just_completed: 'CONTEXT.md has been created with your implementation decisions',
+        confidence_options: '"Approve" to proceed, "Corrections" to change things, or "Review full file" to see the raw file',
+        option_a: 'Approve',
+        action_a: 'Proceed to git commit',
+        option_b: 'Corrections',
+        action_b: 'Ask what to change, apply edits, re-present for approval'
+      }
+    }
+  ],
+  'workflows/quick.md': [
+    {
+      id: 'quick-task-description',
+      type: 'action_gate',
+      marker: /AskUserQuestion\(\n\s*header: "Quick Task",\n\s*question: "What do you want to do\?",\n\s*followUp: null\n\)/,
+      params: {
+        gate_id: 'quick-task-description',
+        action_context: 'Starting a quick task — need task description',
+        action_1: 'Describe your task',
+        description_1: 'Type what you want to do (freeform)',
+        action_2: 'Cancel',
+        description_2: 'Exit quick task mode',
+        action_3: 'View recent tasks',
+        description_3: 'See previously completed quick tasks',
+        action_4_line: '',
+        execute_1: 'Store response as task description and proceed to initialization',
+        execute_2: 'Exit workflow',
+        execute_3: 'Show quick task history from STATE.md',
+        fallback_action: 'Use input as the task description'
+      }
+    }
+  ],
+  'workflows/add-todo.md': [
+    {
+      id: 'add-todo-duplicate',
+      type: 'decision_gate',
+      marker: /If overlapping, use AskUserQuestion:[\s\S]*?- "Add anyway" — create as separate todo/,
+      params: {
+        gate_id: 'add-todo-duplicate',
+        decision_context: 'A similar todo already exists',
+        option_1: 'Skip',
+        description_1: 'Keep existing todo',
+        option_2: 'Replace',
+        description_2: 'Update existing with new context',
+        option_3_line: '3. Add anyway — Create as separate todo',
+        action_1: 'Keep existing todo, exit without creating new one',
+        action_2: 'Update existing todo file with new context',
+        fallback_action: 'Create as separate todo alongside existing one'
+      }
+    }
+  ],
+  'workflows/settings.md': [
+    {
+      id: 'settings-configuration',
+      type: 'bespoke',
+      marker: /Use AskUserQuestion with current values pre-selected:[\s\S]*?\]\)\n```/,
+      block: SETTINGS_CONFIG_BLOCK
+    }
+  ],
+  'workflows/complete-milestone.md': [
+    {
+      id: 'complete-milestone-branches',
+      type: 'action_gate',
+      marker: /AskUserQuestion with options: Squash merge[\s\S]*?Keep branches\./,
+      params: {
+        gate_id: 'complete-milestone-branches',
+        action_context: 'Git branches detected for completed milestone. Choose how to handle them.',
+        action_1: 'Squash merge (Recommended)',
+        description_1: 'Merge branches into main with a single squash commit',
+        action_2: 'Merge with history',
+        description_2: 'Merge branches preserving full commit history',
+        action_3: 'Delete without merging',
+        description_3: 'Remove branches (already merged or not needed)',
+        action_4_line: '4. Keep branches — Leave for manual handling',
+        execute_1: 'Squash merge each branch into main',
+        execute_2: 'Merge each branch with --no-ff into main',
+        execute_3: 'Delete the branch(es)',
+        fallback_action: 'Report "Branches preserved for manual handling"'
+      }
+    }
+  ],
+  'workflows/new-project.md': [
+    {
+      id: 'new-project-brownfield',
+      type: 'decision_gate',
+      marker: /Use AskUserQuestion:\n- header: "Existing Code"[\s\S]*?- "Skip mapping" — Proceed with project initialization/,
+      params: {
+        gate_id: 'new-project-brownfield',
+        decision_context: 'Existing code detected in this directory but no codebase map exists',
+        option_1: 'Map codebase first',
+        description_1: 'Run /bp:map-codebase to understand existing architecture (Recommended)',
+        option_2: 'Skip mapping',
+        description_2: 'Proceed with project initialization',
+        option_3_line: '',
+        action_1: 'Exit and run /bp:map-codebase first, then return to /bp:new-project',
+        action_2: 'Continue with project initialization without codebase mapping',
+        fallback_action: 'Continue with project initialization'
+      }
+    },
+    {
+      id: 'new-project-ready',
+      type: 'continuation_gate',
+      marker: /When you could write a clear PROJECT\.md, use AskUserQuestion:[\s\S]*?- "Keep exploring" — I want to share more \/ ask me more/,
+      params: {
+        gate_id: 'new-project-ready',
+        current_state_summary: 'Deep questioning phase — enough context gathered to write PROJECT.md',
+        proceed_option: 'Create PROJECT.md',
+        proceed_description: 'Let\'s move forward with what we have',
+        continue_option: 'Keep exploring',
+        continue_description: 'I want to share more / ask me more',
+        loop_target_step: 'deep questioning (ask what they want to add, or identify gaps and probe naturally)'
+      }
+    }
+  ],
+  'workflows/new-milestone.md': [
+    {
+      id: 'new-milestone-staleness',
+      type: 'decision_gate',
+      marker: /Present to the user via `AskUserQuestion`:[\s\S]*?\*\*Options:\*\*\n1\. \*\*Full remap\*\*[\s\S]*?2\. \*\*Skip\*\* — Continue with current codebase docs/,
+      params: {
+        gate_id: 'new-milestone-staleness',
+        decision_context: 'Codebase mapping may be stale — significant changes since last mapping',
+        option_1: 'Full remap',
+        description_1: 'Re-run all 4 mapping agents (recommended if significant structural changes)',
+        option_2: 'Skip',
+        description_2: 'Continue with current codebase docs',
+        option_3_line: '',
+        action_1: 'Spawn 4 bp-codebase-mapper agents in parallel and update mapping metadata',
+        action_2: 'Continue to the next step with existing codebase docs',
+        fallback_action: 'Continue with existing codebase docs'
+      }
+    }
+  ],
+  'workflows/check-todos.md': [
+    {
+      id: 'check-todos-action',
+      type: 'action_gate',
+      marker: /Use AskUserQuestion:\n- header: "Action"\n- question: "This todo relates to Phase[\s\S]*?"Put it back" — return to list/,
+      params: {
+        gate_id: 'check-todos-action',
+        action_context: 'Todo selected — choose what to do with it',
+        action_1: 'Work on it now',
+        description_1: 'Move to done, start working',
+        action_2: 'Add to phase plan',
+        description_2: 'Include when planning the related phase',
+        action_3: 'Brainstorm approach',
+        description_3: 'Think through before deciding',
+        action_4_line: '4. Put it back — Return to list',
+        execute_1: 'Move todo to done/ directory, update STATE.md, begin work',
+        execute_2: 'Note todo reference in phase planning notes, keep in pending',
+        execute_3: 'Keep in pending, start discussion about problem and approaches',
+        fallback_action: 'Return to todo list'
+      }
+    }
+  ],
+  'commands/bp/debug.md': [
+    {
+      id: 'debug-symptoms',
+      type: 'bespoke',
+      marker: /## 2\. Gather Symptoms \(if new issue\)\n\nUse AskUserQuestion for each:[\s\S]*?After all gathered, confirm ready to investigate\./,
+      block: DEBUG_SYMPTOMS_BLOCK
+    }
+  ]
+};
+
+function applyInteractionConversions(content, relativePath) {
+  const normalizedPath = relativePath
+    .replace(/^blueprint\//, '')
+    .replace(/^commands\/bp\//, 'commands/bp/');
+
+  const interactions = CURSOR_INTERACTION_MAP[normalizedPath];
+  if (!interactions || interactions.length === 0) {
+    return content.replace(/\bAskUserQuestion\b/g, 'AskQuestion');
+  }
+
+  let result = content;
+
+  for (const interaction of interactions) {
+    if (interaction.type === 'bespoke') {
+      result = result.replace(interaction.marker, interaction.block);
+    } else {
+      let filled = GATE_TEMPLATES[interaction.type];
+      for (const [key, value] of Object.entries(interaction.params)) {
+        filled = filled.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+      }
+      result = result.replace(interaction.marker, filled);
+    }
+  }
+
+  // Catch any remaining AskUserQuestion references
+  result = result.replace(/\bAskUserQuestion\b/g, 'AskQuestion');
+
+  return result;
+}
+
+function convertCommandReferences(content) {
+  return content.replace(/\/bp:([a-z-]+)/g, (match, name) => {
+    const num = CURSOR_SKILL_ORDER[name];
+    if (num != null) {
+      return `/bp-${String(num).padStart(2, '0')}-${name}`;
+    }
+    return match;
+  });
+}
 
 /**
  * Convert a Claude Code tool name to OpenCode format
@@ -584,6 +1040,169 @@ function convertClaudeToGeminiToml(content) {
 }
 
 /**
+ * Convert Claude Code command file to Cursor Skill format
+ * Strips disallowed frontmatter fields and converts name format
+ * @param {string} content - Markdown file content with YAML frontmatter
+ * @param {string} pathPrefix - Path prefix to replace ~/.claude/ with
+ * @returns {string} - Converted content
+ */
+function convertClaudeToCursorSkill(content, pathPrefix) {
+  let converted = content;
+  converted = converted.replace(/~\/\.claude\//g, pathPrefix);
+
+  if (!converted.startsWith('---')) return converted;
+
+  const endIndex = converted.indexOf('---', 3);
+  if (endIndex === -1) return converted;
+
+  const frontmatter = converted.substring(3, endIndex).trim();
+  const body = converted.substring(endIndex + 3);
+
+  const lines = frontmatter.split('\n');
+  const newLines = [];
+  let inAllowedTools = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Strip allowed-tools YAML array
+    if (trimmed.startsWith('allowed-tools:')) { inAllowedTools = true; continue; }
+    if (inAllowedTools) {
+      if (trimmed.startsWith('- ')) continue;
+      if (trimmed && !trimmed.startsWith('-')) inAllowedTools = false;
+    }
+
+    // Strip argument-hint
+    if (trimmed.startsWith('argument-hint:')) continue;
+
+    // Strip agent
+    if (trimmed.startsWith('agent:')) continue;
+
+    // Strip tools (comma-separated string format)
+    if (trimmed.startsWith('tools:')) continue;
+
+    // Convert name from bp:command to bp-command
+    if (trimmed.startsWith('name:')) {
+      const name = trimmed.substring(5).trim().replace(/^bp:/, 'bp-');
+      newLines.push(`name: ${name}`);
+      continue;
+    }
+
+    if (!inAllowedTools) newLines.push(line);
+  }
+
+  // Add disable-model-invocation
+  newLines.push('disable-model-invocation: true');
+
+  const newFrontmatter = newLines.join('\n').trim();
+  return `---\n${newFrontmatter}\n---${body}`;
+}
+
+/**
+ * Convert Claude Code agent file to Cursor agent format
+ * Strips disallowed frontmatter fields and adds model: inherit
+ * @param {string} content - Markdown file content with YAML frontmatter
+ * @param {string} pathPrefix - Path prefix to replace ~/.claude/ with
+ * @returns {string} - Converted content
+ */
+function convertClaudeToCursorAgent(content, pathPrefix) {
+  let converted = content;
+  converted = converted.replace(/~\/\.claude\//g, pathPrefix);
+
+  if (!converted.startsWith('---')) return converted;
+
+  const endIndex = converted.indexOf('---', 3);
+  if (endIndex === -1) return converted;
+
+  const frontmatter = converted.substring(3, endIndex).trim();
+  const body = converted.substring(endIndex + 3);
+
+  const lines = frontmatter.split('\n');
+  const newLines = [];
+  let inAllowedTools = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+
+    // Strip allowed-tools array
+    if (trimmed.startsWith('allowed-tools:')) { inAllowedTools = true; continue; }
+    if (inAllowedTools) {
+      if (trimmed.startsWith('- ')) continue;
+      if (trimmed && !trimmed.startsWith('-')) inAllowedTools = false;
+    }
+
+    // Strip tools (comma-separated)
+    if (trimmed.startsWith('tools:')) {
+      const toolsValue = trimmed.substring(6).trim();
+      if (toolsValue) continue; // inline tools: value
+      inAllowedTools = true; // tools: with YAML array following
+      continue;
+    }
+
+    // Strip color
+    if (trimmed.startsWith('color:')) continue;
+
+    if (!inAllowedTools) newLines.push(line);
+  }
+
+  // Add model: inherit
+  newLines.push('model: inherit');
+
+  const newFrontmatter = newLines.join('\n').trim();
+  return `---\n${newFrontmatter}\n---${body}`;
+}
+
+/**
+ * Copy commands to Cursor's nested skills directory structure
+ * Cursor expects: skills/bp-01-commandname/SKILL.md
+ * Source structure: commands/bp/commandname.md
+ *
+ * @param {string} srcDir - Source directory (e.g., commands/bp/)
+ * @param {string} destDir - Destination directory (e.g., skills/)
+ * @param {string} pathPrefix - Path prefix for file references
+ * @param {string} runtime - Target runtime
+ * @returns {number} - Number of skills installed
+ */
+function copySkillsFromCommands(srcDir, destDir, pathPrefix, runtime) {
+  if (!fs.existsSync(srcDir)) return 0;
+
+  // Clean up old skills
+  if (fs.existsSync(destDir)) {
+    for (const dir of fs.readdirSync(destDir)) {
+      if (dir.startsWith('bp-') && fs.statSync(path.join(destDir, dir)).isDirectory()) {
+        fs.rmSync(path.join(destDir, dir), { recursive: true });
+      }
+    }
+  }
+
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  let installedCount = 0;
+
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+
+    const commandName = entry.name.replace('.md', '');
+    const skillNumber = CURSOR_SKILL_ORDER[commandName];
+    const skillDirName = skillNumber != null
+      ? `bp-${String(skillNumber).padStart(2, '0')}-${commandName}`
+      : `bp-${commandName}`;
+
+    const skillDir = path.join(destDir, skillDirName);
+    fs.mkdirSync(skillDir, { recursive: true });
+
+    let content = fs.readFileSync(path.join(srcDir, entry.name), 'utf8');
+    content = convertClaudeToCursorSkill(content, pathPrefix);
+    content = applyInteractionConversions(content, `commands/bp/${entry.name}`);
+    content = processAttribution(content, getCommitAttribution(runtime));
+
+    fs.writeFileSync(path.join(skillDir, 'SKILL.md'), content);
+    installedCount++;
+  }
+
+  return installedCount;
+}
+
+/**
  * Copy commands to a flat structure for OpenCode
  * OpenCode expects: command/bp-help.md (invoked as /bp-help)
  * Source structure: commands/bp/help.md
@@ -671,7 +1290,7 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime) {
       content = content.replace(claudeDirRegex, pathPrefix);
       content = processAttribution(content, getCommitAttribution(runtime));
 
-      // Convert frontmatter for opencode compatibility
+      // Convert for runtime compatibility
       if (isOpencode) {
         content = convertClaudeToOpencodeFrontmatter(content);
         fs.writeFileSync(destPath, content);
@@ -682,6 +1301,12 @@ function copyWithPathReplacement(srcDir, destDir, pathPrefix, runtime) {
         // Replace extension with .toml
         const tomlPath = destPath.replace(/\.md$/, '.toml');
         fs.writeFileSync(tomlPath, tomlContent);
+      } else if (runtime === 'cursor') {
+        // Apply Cursor interaction conversions and command reference conversions
+        const relativePath = srcPath.replace(/^.*?\/blueprint\//, 'blueprint/').replace(/^.*?\/commands\//, 'commands/');
+        content = applyInteractionConversions(content, relativePath);
+        content = convertCommandReferences(content);
+        fs.writeFileSync(destPath, content);
       } else {
         fs.writeFileSync(destPath, content);
       }
@@ -803,6 +1428,7 @@ function uninstall(isGlobal, runtime = 'claude') {
   let runtimeLabel = 'Claude Code';
   if (runtime === 'opencode') runtimeLabel = 'OpenCode';
   if (runtime === 'gemini') runtimeLabel = 'Gemini';
+  if (runtime === 'cursor') runtimeLabel = 'Cursor';
 
   console.log(`  Uninstalling Blueprint from ${cyan}${runtimeLabel}${reset} at ${cyan}${locationLabel}${reset}\n`);
 
@@ -815,8 +1441,27 @@ function uninstall(isGlobal, runtime = 'claude') {
 
   let removedCount = 0;
 
-  // 1. Remove Blueprint commands directory
-  if (isOpencode) {
+  // 1. Remove Blueprint commands/skills directory
+  const isCursor = runtime === 'cursor';
+  if (isCursor) {
+    // Cursor: remove skills/bp-*/ directories
+    const skillsDir = path.join(targetDir, 'skills');
+    if (fs.existsSync(skillsDir)) {
+      const dirs = fs.readdirSync(skillsDir);
+      let skillCount = 0;
+      for (const dir of dirs) {
+        const fullPath = path.join(skillsDir, dir);
+        if (dir.startsWith('bp-') && fs.statSync(fullPath).isDirectory()) {
+          fs.rmSync(fullPath, { recursive: true });
+          skillCount++;
+        }
+      }
+      if (skillCount > 0) {
+        removedCount++;
+        console.log(`  ${green}✓${reset} Removed ${skillCount} Blueprint skills`);
+      }
+    }
+  } else if (isOpencode) {
     // OpenCode: remove command/bp-*.md files
     const commandDir = path.join(targetDir, 'command');
     if (fs.existsSync(commandDir)) {
@@ -1284,6 +1929,7 @@ function reportLocalPatches(configDir) {
 function install(isGlobal, runtime = 'claude') {
   const isOpencode = runtime === 'opencode';
   const isGemini = runtime === 'gemini';
+  const isCursor = runtime === 'cursor';
   const dirName = getDirName(runtime);
   const src = path.join(__dirname, '..');
 
@@ -1306,6 +1952,7 @@ function install(isGlobal, runtime = 'claude') {
   let runtimeLabel = 'Claude Code';
   if (isOpencode) runtimeLabel = 'OpenCode';
   if (isGemini) runtimeLabel = 'Gemini';
+  if (isCursor) runtimeLabel = 'Cursor';
 
   console.log(`  Installing for ${cyan}${runtimeLabel}${reset} to ${cyan}${locationLabel}${reset}\n`);
 
@@ -1318,13 +1965,24 @@ function install(isGlobal, runtime = 'claude') {
   // Clean up orphaned files from previous versions
   cleanupOrphanedFiles(targetDir);
 
-  // OpenCode uses 'command/' (singular) with flat structure
-  // Claude Code & Gemini use 'commands/' (plural) with nested structure
-  if (isOpencode) {
+  // Runtime-specific command installation
+  if (isCursor) {
+    // Cursor: Skills in skills/ directory with nested structure
+    const skillsDir = path.join(targetDir, 'skills');
+    fs.mkdirSync(skillsDir, { recursive: true });
+
+    const bpSrc = path.join(src, 'commands', 'bp');
+    const count = copySkillsFromCommands(bpSrc, skillsDir, pathPrefix, runtime);
+    if (count > 0) {
+      console.log(`  ${green}✓${reset} Installed ${count} skills to skills/`);
+    } else {
+      failures.push('skills');
+    }
+  } else if (isOpencode) {
     // OpenCode: flat structure in command/ directory
     const commandDir = path.join(targetDir, 'command');
     fs.mkdirSync(commandDir, { recursive: true });
-    
+
     // Copy commands/bp/*.md as command/bp-*.md (flatten structure)
     const bpSrc = path.join(src, 'commands', 'bp');
     copyFlattenedCommands(bpSrc, commandDir, 'bp', pathPrefix, runtime);
@@ -1338,7 +1996,7 @@ function install(isGlobal, runtime = 'claude') {
     // Claude Code & Gemini: nested structure in commands/ directory
     const commandsDir = path.join(targetDir, 'commands');
     fs.mkdirSync(commandsDir, { recursive: true });
-    
+
     const bpSrc = path.join(src, 'commands', 'bp');
     const bpDest = path.join(commandsDir, 'bp');
     copyWithPathReplacement(bpSrc, bpDest, pathPrefix, runtime);
@@ -1388,6 +2046,8 @@ function install(isGlobal, runtime = 'claude') {
           content = convertClaudeToOpencodeFrontmatter(content);
         } else if (isGemini) {
           content = convertClaudeToGeminiAgent(content);
+        } else if (isCursor) {
+          content = convertClaudeToCursorAgent(content, pathPrefix);
         }
         fs.writeFileSync(path.join(agentsDest, entry.name), content);
       }
@@ -1421,22 +2081,25 @@ function install(isGlobal, runtime = 'claude') {
   }
 
   // Copy hooks from dist/ (bundled with dependencies)
-  const hooksSrc = path.join(src, 'hooks', 'dist');
-  if (fs.existsSync(hooksSrc)) {
-    const hooksDest = path.join(targetDir, 'hooks');
-    fs.mkdirSync(hooksDest, { recursive: true });
-    const hookEntries = fs.readdirSync(hooksSrc);
-    for (const entry of hookEntries) {
-      const srcFile = path.join(hooksSrc, entry);
-      if (fs.statSync(srcFile).isFile()) {
-        const destFile = path.join(hooksDest, entry);
-        fs.copyFileSync(srcFile, destFile);
+  // Skip for Cursor — hooks deferred to v2
+  if (!isCursor) {
+    const hooksSrc = path.join(src, 'hooks', 'dist');
+    if (fs.existsSync(hooksSrc)) {
+      const hooksDest = path.join(targetDir, 'hooks');
+      fs.mkdirSync(hooksDest, { recursive: true });
+      const hookEntries = fs.readdirSync(hooksSrc);
+      for (const entry of hookEntries) {
+        const srcFile = path.join(hooksSrc, entry);
+        if (fs.statSync(srcFile).isFile()) {
+          const destFile = path.join(hooksDest, entry);
+          fs.copyFileSync(srcFile, destFile);
+        }
       }
-    }
-    if (verifyInstalled(hooksDest, 'hooks')) {
-      console.log(`  ${green}✓${reset} Installed hooks (bundled)`);
-    } else {
-      failures.push('hooks');
+      if (verifyInstalled(hooksDest, 'hooks')) {
+        console.log(`  ${green}✓${reset} Installed hooks (bundled)`);
+      } else {
+        failures.push('hooks');
+      }
     }
   }
 
@@ -1467,8 +2130,8 @@ function install(isGlobal, runtime = 'claude') {
     }
   }
 
-  // Configure SessionStart hook for update checking (skip for opencode)
-  if (!isOpencode) {
+  // Configure SessionStart hook for update checking (skip for opencode and cursor)
+  if (!isOpencode && !isCursor) {
     if (!settings.hooks) {
       settings.hooks = {};
     }
@@ -1528,8 +2191,10 @@ function finishInstall(settingsPath, settings, statuslineCommand, shouldInstallS
   let program = 'Claude Code';
   if (runtime === 'opencode') program = 'OpenCode';
   if (runtime === 'gemini') program = 'Gemini';
+  if (runtime === 'cursor') program = 'Cursor';
 
-  const command = isOpencode ? '/bp-help' : '/bp:help';
+  const isCursor = runtime === 'cursor';
+  const command = isOpencode ? '/bp-help' : isCursor ? '/bp-27-help' : '/bp:help';
   console.log(`
   ${green}Done!${reset} Launch ${program} and run ${cyan}${command}${reset}.
 
@@ -1610,15 +2275,18 @@ function promptRuntime(callback) {
   console.log(`  ${yellow}Which runtime(s) would you like to install for?${reset}\n\n  ${cyan}1${reset}) Claude Code ${dim}(~/.claude)${reset}
   ${cyan}2${reset}) OpenCode    ${dim}(~/.config/opencode)${reset} - open source, free models
   ${cyan}3${reset}) Gemini      ${dim}(~/.gemini)${reset}
-  ${cyan}4${reset}) All
+  ${cyan}4${reset}) Cursor      ${dim}(~/.cursor)${reset}
+  ${cyan}5${reset}) All
 `);
 
   rl.question(`  Choice ${dim}[1]${reset}: `, (answer) => {
     answered = true;
     rl.close();
     const choice = answer.trim() || '1';
-    if (choice === '4') {
-      callback(['claude', 'opencode', 'gemini']);
+    if (choice === '5') {
+      callback(['claude', 'opencode', 'gemini', 'cursor']);
+    } else if (choice === '4') {
+      callback(['cursor']);
     } else if (choice === '3') {
       callback(['gemini']);
     } else if (choice === '2') {
@@ -1703,16 +2371,28 @@ function installAllRuntimes(runtimes, isGlobal, isInteractive) {
       if (geminiResult) {
          finishInstall(geminiResult.settingsPath, geminiResult.settings, geminiResult.statuslineCommand, shouldInstallStatusline, 'gemini');
       }
-      
+
       const opencodeResult = results.find(r => r.runtime === 'opencode');
       if (opencodeResult) {
         finishInstall(opencodeResult.settingsPath, opencodeResult.settings, opencodeResult.statuslineCommand, false, 'opencode');
       }
+
+      // Cursor doesn't use statusline — finishInstall with shouldInstallStatusline=false
+      const cursorResult = results.find(r => r.runtime === 'cursor');
+      if (cursorResult) {
+        finishInstall(cursorResult.settingsPath, cursorResult.settings, cursorResult.statuslineCommand, false, 'cursor');
+      }
     });
   } else {
-    // Only OpenCode
-    const opencodeResult = results[0];
-    finishInstall(opencodeResult.settingsPath, opencodeResult.settings, opencodeResult.statuslineCommand, false, 'opencode');
+    // Only runtimes without statusline (OpenCode and/or Cursor)
+    const opencodeResult = results.find(r => r.runtime === 'opencode');
+    if (opencodeResult) {
+      finishInstall(opencodeResult.settingsPath, opencodeResult.settings, opencodeResult.statuslineCommand, false, 'opencode');
+    }
+    const cursorResult = results.find(r => r.runtime === 'cursor');
+    if (cursorResult) {
+      finishInstall(cursorResult.settingsPath, cursorResult.settings, cursorResult.statuslineCommand, false, 'cursor');
+    }
   }
 }
 

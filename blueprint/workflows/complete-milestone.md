@@ -35,6 +35,18 @@ When a milestone completes:
 
 <process>
 
+<step name="init_context">
+
+**Initialize milestone context:**
+
+```bash
+INIT=$(node ~/.claude/blueprint/bin/blueprint-tools.js init milestone-op)
+```
+
+Extract from init JSON: `milestone_version`, `milestone_name`, `phase_count`, `completed_phases`, `commit_docs`, `mapper_model`, `has_codebase_map`, `has_git`.
+
+</step>
+
 <step name="verify_readiness">
 
 **Use `roadmap analyze` for comprehensive readiness check:**
@@ -425,17 +437,94 @@ See: .blueprint/PROJECT.md (updated [today])
 
 </step>
 
+<step name="compact_state">
+**Compact STATE.md for the new milestone:**
+
+First, compact the structural sections via CLI:
+
+```bash
+COMPACT=$(node ~/.claude/blueprint/bin/blueprint-tools.js state compact)
+```
+
+This removes Performance Metrics, Accumulated Context (decisions list), resolved blockers, and Session Continuity. It preserves Project Reference, Current Position, and Active Blockers.
+
+**Now fill Key Learnings manually.** Read the compacted STATE.md and the milestone's SUMMARY.md files. Distill 3-5 insights that are genuinely useful for future development:
+
+```markdown
+## Key Learnings
+
+- [Insight about the development process, architecture, or testing patterns]
+- [Technical constraint or risk discovered during this milestone]
+- [Pattern that should inform future phase planning]
+```
+
+**Guidelines for key learnings:**
+- Focus on insights that change how you'd approach future work
+- Not accomplishments ("completed auth system") but process insights ("auth module integration tests caught more bugs than unit tests")
+- Not facts about the code ("uses Express") but patterns ("API endpoints need careful error handling because middleware doesn't catch async errors")
+- Maximum 5 items. Fewer is better.
+
+Write the learnings to STATE.md, then update the Current Position section to reflect the milestone completion.
+
+Verify STATE.md is under 100 lines:
+
+```bash
+wc -l .blueprint/STATE.md
+```
+
+</step>
+
+<step name="auto_remap_codebase">
+**Automatically remap the codebase after milestone completion.**
+
+This runs unconditionally — no staleness check or user prompt. At a major milestone, the codebase docs should be fresh.
+
+**Check prerequisites:**
+
+```bash
+# Verify git is available and we're in a repo
+git rev-parse --is-inside-work-tree
+```
+
+If not a git repo, skip the remap and continue to handle_branches.
+
+**Spawn 4 mapper agents in parallel:**
+
+Use the `mapper_model` from the init context. Spawn agents identical to the `map-codebase` workflow:
+
+- Task(subagent_type="bp-codebase-mapper", name="mapper-tech", run_in_background=true, prompt="Focus: tech. Write STACK.md and INTEGRATIONS.md to .blueprint/codebase/...")
+- Task(subagent_type="bp-codebase-mapper", name="mapper-arch", run_in_background=true, prompt="Focus: arch. Write ARCHITECTURE.md and STRUCTURE.md to .blueprint/codebase/...")
+- Task(subagent_type="bp-codebase-mapper", name="mapper-quality", run_in_background=true, prompt="Focus: quality. Write CONVENTIONS.md and TESTING.md to .blueprint/codebase/...")
+- Task(subagent_type="bp-codebase-mapper", name="mapper-concerns", run_in_background=true, prompt="Focus: concerns. Write CONCERNS.md to .blueprint/codebase/...")
+
+Wait for all 4 agents to complete.
+
+**Verify and commit:**
+
+1. Verify all 7 docs exist in `.blueprint/codebase/`
+2. Commit:
+   ```bash
+   node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: auto-remap codebase at milestone completion" --files .blueprint/codebase/*.md
+   ```
+3. Update mapping metadata:
+   ```bash
+   COMMIT=$(git rev-parse --short HEAD)
+   TIMESTAMP=$(node ~/.claude/blueprint/bin/blueprint-tools.js current-timestamp full)
+   node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_at" "$TIMESTAMP"
+   node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_commit" "$COMMIT"
+   node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: update codebase mapping metadata" --files .blueprint/config.json
+   ```
+
+**If mapping fails:** Log the error but do not block milestone completion. The milestone is already archived — a failed remap is inconvenient but not catastrophic. Warn the user to run `/bp:map-codebase` manually.
+
+Continue to handle_branches.
+</step>
+
 <step name="handle_branches">
 
 Check branching strategy and offer merge options.
 
-Use `init milestone-op` for context, or load config directly:
-
-```bash
-INIT=$(node ~/.claude/blueprint/bin/blueprint-tools.js init execute-phase "1")
-```
-
-Extract `branching_strategy`, `phase_branch_template`, `milestone_branch_template` from init JSON.
+Use `branching_strategy`, `phase_branch_template`, `milestone_branch_template` from the init context (extracted in init_context step).
 
 **If "none":** Skip to git_tag.
 

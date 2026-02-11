@@ -43,7 +43,7 @@ The document should describe what you want to build.
 INIT=$(node ~/.claude/blueprint/bin/blueprint-tools.js init new-project)
 ```
 
-Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`.
+Parse JSON for: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `mapper_model`, `commit_docs`, `project_exists`, `has_codebase_map`, `planning_exists`, `has_existing_code`, `has_package_file`, `is_brownfield`, `needs_codebase_map`, `has_git`.
 
 **If `project_exists` is true:** Error — project already initialized. Use `/bp:progress`.
 
@@ -71,7 +71,31 @@ Run `/bp:map-codebase` first, then return to `/bp:new-project`
 ```
 Exit command.
 
-**If "Skip mapping" OR `needs_codebase_map` is false:** Continue to Step 3.
+**If "Skip mapping" OR `needs_codebase_map` is false:** Continue.
+
+**If `has_codebase_map` is true AND `has_git` is true:**
+
+The project already has a codebase map. Check if it's stale:
+
+```bash
+STALENESS=$(node ~/.claude/blueprint/bin/blueprint-tools.js codebase-staleness-check)
+```
+
+Parse `STALENESS` JSON. If `stale` is true, present to the user:
+
+```
+Existing codebase map may be outdated.
+Last mapped: {last_mapped_at}
+Changes since: {files_changed} files, +{lines_added}/-{lines_removed} lines
+
+Would you like to refresh the codebase map before starting the project?
+```
+
+Options:
+1. **Refresh** — Full remap before proceeding
+2. **Skip** — Use existing codebase docs
+
+If the user chooses Refresh, run the full remap flow (spawn 4 bp-codebase-mapper agents, commit results, update config metadata). Otherwise continue.
 
 ## 3. Deep Questioning
 
@@ -208,12 +232,76 @@ Initialize with any decisions made during questioning:
 
 Do not compress. Capture everything gathered.
 
-**Commit PROJECT.md:**
-
+Write the file to disk:
 ```bash
 mkdir -p .blueprint
+# Write .blueprint/PROJECT.md (do NOT commit yet — verification gate first)
+```
+
+### 4a. PROJECT.md Verification Gate
+
+**If auto mode:** Skip gate. Display brief confirmation and commit directly:
+```
+✓ PROJECT.md created at .blueprint/PROJECT.md ({line_count} lines)
+```
+```bash
 node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: initialize project" --files .blueprint/PROJECT.md
 ```
+Proceed to Step 5.
+
+**Interactive mode:**
+
+Read back `.blueprint/PROJECT.md` and extract a structured summary.
+
+Display with review banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► REVIEW: Project
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**What this is:** {2-3 sentence description from What This Is section}
+
+**Core value:** {one sentence from Core Value section}
+
+**Active requirements:** {count} requirements in {count} categories
+- {Category 1}: {count} requirements
+- {Category 2}: {count} requirements
+
+**Out of scope:** {count} exclusions
+
+**Constraints:** {count} hard limits
+- {list each constraint type: value pair}
+
+**Key decisions:** {count} decisions logged
+```
+
+Use AskUserQuestion:
+- header: "Project"
+- question: "Does this accurately capture what you described?"
+- options:
+  - "Approve" — Looks good, proceed
+  - "Corrections" — I want to change some things
+  - "Review full file" — Show me the raw file first
+
+**If "Approve":** Commit and proceed to Step 5.
+
+```bash
+node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: initialize project" --files .blueprint/PROJECT.md
+```
+
+**If "Corrections":**
+- Ask: "What would you like to change?"
+- Wait for freeform response
+- Apply corrections to `.blueprint/PROJECT.md` using Edit tool (targeted edits, not full rewrite)
+- Re-read the file and re-generate summary
+- Re-display summary and re-ask (loop back to AskUserQuestion above)
+
+**If "Review full file":**
+- Display raw file content: `cat .blueprint/PROJECT.md`
+- Then re-ask (loop back to AskUserQuestion above, without re-displaying summary)
+
+Loop until user selects "Approve". Only commit after approval.
 
 ## 5. Workflow Preferences
 
@@ -373,6 +461,76 @@ Display stage banner:
 Researching [domain] ecosystem...
 ```
 
+### 6a. Pre-Research Interview
+
+**If auto mode:** Skip interview entirely. Researchers receive default context (all focus areas, no known problems, "Research should recommend"). Proceed directly to research directory creation.
+
+**Interactive mode:**
+
+Display interview banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► PRE-RESEARCH INTERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your input shapes what researchers investigate.
+Quick 2-round interview — skip with default answers if unsure.
+```
+
+**Round 1 (2 questions):**
+
+AskUserQuestion:
+- header: "Focus"
+- question: "What aspects of {domain} should research focus on?"
+- multiSelect: true
+- options:
+  - "Technology stack" — Best frameworks, libraries, databases for this domain
+  - "Architecture patterns" — How to structure the system, component design
+  - "Feature landscape" — What users expect, table stakes vs differentiators
+  - "Common pitfalls" — What goes wrong, what to avoid
+
+AskUserQuestion:
+- header: "Known"
+- question: "Are there known technical challenges or constraints?"
+- options:
+  - "Yes, let me describe" — I know specific issues to investigate
+  - "Not sure" — Research should discover these
+  - "Domain is new to me" — Full ecosystem discovery needed
+
+**If "Yes, let me describe":**
+Ask freeform: "Describe the known challenges or constraints:"
+Wait for response. Capture as known_problems context.
+
+**Round 2:**
+
+AskUserQuestion:
+- header: "Conventions"
+- question: "Any technology preferences or conventions to follow?"
+- options:
+  - "Yes, let me specify" — I have stack/pattern preferences
+  - "Research should recommend" — No strong preferences
+  - "Must match existing codebase" — Research should check compatibility
+
+**If "Yes, let me specify":**
+Ask freeform: "Describe your technology preferences or conventions:"
+Wait for response. Capture as conventions context.
+
+**Format interview responses:**
+
+Assemble all responses into a structured block:
+
+```markdown
+<user_research_guidance>
+## User Research Guidance
+
+**Focus areas:** {selected areas from Q1, comma-separated}
+**Known problems:** {user's freeform description from Q2, or "None specified" / "Domain is new — full discovery needed"}
+**Conventions:** {user's freeform description from Q4, or "Research should recommend" / "Must match existing codebase"}
+</user_research_guidance>
+```
+
+This `<user_research_guidance>` block is appended after `<project_context>` in ALL 4 researcher spawn prompts below.
+
 Create research directory:
 ```bash
 mkdir -p .blueprint/research
@@ -417,6 +575,8 @@ What's the standard 2025 stack for [domain]?
 [PROJECT.md summary - core value, constraints, what they're building]
 </project_context>
 
+{user_research_guidance block from interview — omit if auto mode}
+
 <downstream_consumer>
 Your STACK.md feeds into roadmap creation. Be prescriptive:
 - Specific libraries with versions
@@ -456,6 +616,8 @@ What features do [domain] products have? What's table stakes vs differentiating?
 <project_context>
 [PROJECT.md summary]
 </project_context>
+
+{user_research_guidance block from interview — omit if auto mode}
 
 <downstream_consumer>
 Your FEATURES.md feeds into requirements definition. Categorize clearly:
@@ -497,6 +659,8 @@ How are [domain] systems typically structured? What are major components?
 [PROJECT.md summary]
 </project_context>
 
+{user_research_guidance block from interview — omit if auto mode}
+
 <downstream_consumer>
 Your ARCHITECTURE.md informs phase structure in roadmap. Include:
 - Component boundaries (what talks to what)
@@ -536,6 +700,8 @@ What do [domain] projects commonly get wrong? Critical mistakes?
 <project_context>
 [PROJECT.md summary]
 </project_context>
+
+{user_research_guidance block from interview — omit if auto mode}
 
 <downstream_consumer>
 Your PITFALLS.md prevents mistakes in roadmap/planning. For each pitfall:
@@ -595,6 +761,112 @@ Display research complete banner and key findings:
 
 Files: `.blueprint/research/`
 ```
+
+### 6b. Post-Research Verification Gate
+
+**If auto mode:** Skip gate. Display brief confirmation and proceed directly to Step 7:
+```
+✓ Research complete — 5 files in .blueprint/research/
+```
+
+**Interactive mode:**
+
+Read `.blueprint/research/SUMMARY.md` and extract a structured summary.
+
+Display with review banner:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► REVIEW: Research Findings
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Domain:** {type of product}
+**Overall confidence:** {HIGH/MEDIUM/LOW}
+
+**Stack:** {one-liner from Key Findings}
+**Table stakes:** {count} features identified
+**Top differentiators:** {2-3 most impactful}
+**Critical pitfall:** {most important one}
+
+**Roadmap implications:**
+{Suggested phase count} phases suggested
+1. {Phase suggestion}: {rationale}
+2. {Phase suggestion}: {rationale}
+
+**Research flags:**
+- Needs deeper research: {phases}
+- Standard patterns: {phases}
+
+**Gaps:** {count} areas needing attention
+```
+
+Use AskUserQuestion:
+- header: "Research"
+- question: "Do these research findings look right?"
+- options:
+  - "Approve" — Findings look good, proceed to requirements
+  - "Dig deeper" — I want more detail on a specific area
+  - "Corrections" — Some findings are wrong or missing
+  - "Review files" — Show me a specific research file
+
+**If "Approve":** Proceed to Step 7.
+
+**If "Dig deeper":**
+- Ask freeform: "Which area needs deeper research, and what concerns do you have?"
+- Wait for response. Capture the area and concerns.
+- Spawn a single targeted researcher:
+  ```
+  Task(prompt="First, read ~/.claude/agents/bp-project-researcher.md for your role and instructions.
+
+  <research_type>
+  Targeted deep-dive — {area user specified} for [domain].
+  </research_type>
+
+  <user_concern>
+  {user's description of what needs deeper investigation}
+  </user_concern>
+
+  <existing_research>
+  Read these files for context on what's already been researched:
+  - .blueprint/research/SUMMARY.md
+  - .blueprint/research/{relevant file based on area}
+  </existing_research>
+
+  <project_context>
+  [PROJECT.md summary]
+  </project_context>
+
+  <output>
+  Update the relevant research file in .blueprint/research/ with deeper findings.
+  Then update .blueprint/research/SUMMARY.md to reflect new information.
+  </output>
+  ", subagent_type="general-purpose", model="{researcher_model}", description="Deep-dive: {area}")
+  ```
+- After researcher completes, re-read SUMMARY.md
+- Re-generate summary and re-enter this gate (loop back to AskUserQuestion above)
+
+**If "Corrections":**
+- Ask: "What's wrong or missing in the research?"
+- Wait for freeform response
+- Apply corrections to the relevant research files using Edit tool
+- Update SUMMARY.md if affected
+- Re-read SUMMARY.md and re-generate summary
+- Re-display summary and re-ask (loop back to AskUserQuestion above)
+
+**If "Review files":**
+- Ask which file to review:
+  AskUserQuestion:
+  - header: "File"
+  - question: "Which research file do you want to review?"
+  - options:
+    - "SUMMARY.md" — Research synthesis and key findings
+    - "STACK.md" — Technology stack recommendations
+    - "FEATURES.md" — Feature landscape analysis
+    - "ARCHITECTURE.md" — System architecture patterns
+- Display the selected file: `cat .blueprint/research/{selected_file}`
+- Then re-ask (loop back to the main AskUserQuestion above, without re-displaying summary)
+
+Loop until user selects "Approve".
 
 **If "Skip research":** Continue to Step 7.
 
@@ -712,36 +984,68 @@ Reject vague requirements. Push for specificity:
 - "Handle authentication" → "User can log in with email/password and stay logged in across sessions"
 - "Support sharing" → "User can share post via link that opens in recipient's browser"
 
-**Present full requirements list (interactive mode only):**
+### 7a. Requirements Verification Gate
 
-Show every requirement (not counts) for user confirmation:
+**If auto mode:** Skip gate. Display brief confirmation and commit directly:
+```
+✓ REQUIREMENTS.md created at .blueprint/REQUIREMENTS.md ({line_count} lines)
+```
+```bash
+node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: define v1 requirements" --files .blueprint/REQUIREMENTS.md
+```
+Proceed to Step 8.
+
+**Interactive mode:**
+
+Read back `.blueprint/REQUIREMENTS.md` and extract a structured summary.
+
+Display with review banner:
 
 ```
-## v1 Requirements
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► REVIEW: Requirements
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-### Authentication
-- [ ] **AUTH-01**: User can create account with email/password
-- [ ] **AUTH-02**: User can log in and stay logged in across sessions
-- [ ] **AUTH-03**: User can log out from any page
+**v1 scope:** {total count} requirements across {category count} categories
 
-### Content
-- [ ] **CONT-01**: User can create posts with text
-- [ ] **CONT-02**: User can edit their own posts
+For each category:
+- **{Category} ({count}):** {comma-separated REQ-IDs with brief labels}
 
-[... full list ...]
+**v2 deferred:** {count} requirements
 
----
+**Out of scope:** {count} exclusions
+For each:
+- {Feature}: {reason}
 
-Does this capture what you're building? (yes / adjust)
+**Coverage check:** All v1 requirements mapped? {yes/no}
 ```
 
-If "adjust": Return to scoping.
+Use AskUserQuestion:
+- header: "Requirements"
+- question: "Does this accurately capture what you're building?"
+- options:
+  - "Approve" — Looks good, proceed to roadmap
+  - "Corrections" — I want to change some things
+  - "Review full file" — Show me the raw file first
 
-**Commit requirements:**
+**If "Approve":** Commit and proceed to Step 8.
 
 ```bash
 node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: define v1 requirements" --files .blueprint/REQUIREMENTS.md
 ```
+
+**If "Corrections":**
+- Ask: "What would you like to change?"
+- Wait for freeform response
+- Apply corrections to `.blueprint/REQUIREMENTS.md` using Edit tool (targeted edits, not full rewrite)
+- Re-read the file and re-generate summary
+- Re-display summary and re-ask (loop back to AskUserQuestion above)
+
+**If "Review full file":**
+- Display raw file content: `cat .blueprint/REQUIREMENTS.md`
+- Then re-ask (loop back to AskUserQuestion above, without re-displaying summary)
+
+Loop until user selects "Approve". Only commit after approval.
 
 ## 8. Create Roadmap
 
@@ -797,80 +1101,113 @@ Write files first, then return. This ensures artifacts persist even if context i
 
 **If `## ROADMAP CREATED`:**
 
-Read the created ROADMAP.md and present it nicely inline:
+Read the created ROADMAP.md and extract a structured summary.
+
+**If auto mode:** Skip approval gate — auto-approve and commit directly:
+```
+✓ ROADMAP.md created at .blueprint/ROADMAP.md ({line_count} lines, {phase_count} phases)
+```
+```bash
+node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: create roadmap ([N] phases)" --files .blueprint/ROADMAP.md .blueprint/STATE.md .blueprint/REQUIREMENTS.md
+```
+Proceed to Step 9.
+
+**Interactive mode — CRITICAL: Ask for approval before committing:**
+
+Display with review banner:
 
 ```
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► REVIEW: Roadmap
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## Proposed Roadmap
-
-**[N] phases** | **[X] requirements mapped** | All v1 requirements covered ✓
+**Phases:** {count} phases | **Depth:** {depth setting}
 
 | # | Phase | Goal | Requirements | Success Criteria |
 |---|-------|------|--------------|------------------|
-| 1 | [Name] | [Goal] | [REQ-IDs] | [count] |
-| 2 | [Name] | [Goal] | [REQ-IDs] | [count] |
-| 3 | [Name] | [Goal] | [REQ-IDs] | [count] |
-...
+| {n} | {name} | {goal} | {REQ-IDs} | {count} criteria |
+[... for all phases ...]
 
-### Phase Details
+**Requirement coverage:** {mapped}/{total} v1 requirements mapped
 
-**Phase 1: [Name]**
-Goal: [goal]
-Requirements: [REQ-IDs]
-Success criteria:
-1. [criterion]
-2. [criterion]
-3. [criterion]
+**Phase dependencies:**
+{Phase N} → {Phase M} → ... (dependency chain)
 
-**Phase 2: [Name]**
-Goal: [goal]
-Requirements: [REQ-IDs]
-Success criteria:
-1. [criterion]
-2. [criterion]
-
-[... continue for all phases ...]
-
----
+**Success criteria preview** (Phase 1 only, to show quality):
+1. {criterion 1}
+2. {criterion 2}
+3. {criterion 3}
 ```
-
-**If auto mode:** Skip approval gate — auto-approve and commit directly.
-
-**CRITICAL: Ask for approval before committing (interactive mode only):**
 
 Use AskUserQuestion:
 - header: "Roadmap"
 - question: "Does this roadmap structure work for you?"
 - options:
   - "Approve" — Commit and continue
-  - "Adjust phases" — Tell me what to change
+  - "Adjust phases" — Change phase structure
+  - "Review criteria" — Show all success criteria for all phases
   - "Review full file" — Show raw ROADMAP.md
 
 **If "Approve":** Continue to commit.
 
 **If "Adjust phases":**
-- Get user's adjustment notes
-- Re-spawn roadmapper with revision context:
+
+Ask which kind of adjustment:
+
+AskUserQuestion:
+- header: "Adjust"
+- question: "What kind of adjustment?"
+- options:
+  - "Reorder phases" — Change the sequence of phases
+  - "Split or merge" — Split a large phase or merge small ones
+  - "Change scope" — Move requirements between phases
+  - "Change criteria" — Modify success criteria for a phase
+
+Capture the user's specific adjustment notes based on their selection.
+
+Re-spawn roadmapper with revision context:
+```
+Task(prompt="
+<revision>
+User feedback on roadmap:
+Adjustment type: {selected adjustment type}
+Details: [user's notes]
+
+Current ROADMAP.md: @.blueprint/ROADMAP.md
+
+Update the roadmap based on feedback. Edit files in place.
+Return ROADMAP REVISED with changes made.
+</revision>
+", subagent_type="bp-roadmapper", model="{roadmapper_model}", description="Revise roadmap")
+```
+
+After roadmapper returns:
+- Re-read ROADMAP.md and re-generate summary
+- Re-display summary and re-ask (loop back to the main AskUserQuestion above)
+- Loop until user selects "Approve"
+
+**If "Review criteria":**
+- Read ROADMAP.md and extract ALL success criteria for ALL phases
+- Display them grouped by phase:
   ```
-  Task(prompt="
-  <revision>
-  User feedback on roadmap:
-  [user's notes]
+  ## Success Criteria — All Phases
 
-  Current ROADMAP.md: @.blueprint/ROADMAP.md
+  **Phase 1: {Name}**
+  1. {criterion}
+  2. {criterion}
+  3. {criterion}
 
-  Update the roadmap based on feedback. Edit files in place.
-  Return ROADMAP REVISED with changes made.
-  </revision>
-  ", subagent_type="bp-roadmapper", model="{roadmapper_model}", description="Revise roadmap")
+  **Phase 2: {Name}**
+  1. {criterion}
+  2. {criterion}
+
+  [... all phases ...]
   ```
-- Present revised roadmap
-- Loop until user approves
+- Then re-ask (loop back to the main AskUserQuestion above, without re-displaying the summary)
 
-**If "Review full file":** Display raw `cat .blueprint/ROADMAP.md`, then re-ask.
+**If "Review full file":** Display raw `cat .blueprint/ROADMAP.md`, then re-ask (loop back to the main AskUserQuestion above).
 
-**Commit roadmap (after approval or auto mode):**
+**Commit roadmap (after approval):**
 
 ```bash
 node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: create roadmap ([N] phases)" --files .blueprint/ROADMAP.md .blueprint/STATE.md .blueprint/REQUIREMENTS.md
@@ -939,14 +1276,17 @@ Present completion with next steps:
 - [ ] Git repo initialized
 - [ ] Brownfield detection completed
 - [ ] Deep questioning completed (threads followed, not rushed)
-- [ ] PROJECT.md captures full context → **committed**
+- [ ] PROJECT.md captures full context → **verified by user** → **committed**
 - [ ] config.json has workflow mode, depth, parallelization → **committed**
+- [ ] Pre-research interview completed (if interactive + research selected)
 - [ ] Research completed (if selected) — 4 parallel agents spawned → **committed**
+- [ ] Research findings reviewed by user (if interactive + research selected)
 - [ ] Requirements gathered (from research or conversation)
 - [ ] User scoped each category (v1/v2/out of scope)
-- [ ] REQUIREMENTS.md created with REQ-IDs → **committed**
+- [ ] REQUIREMENTS.md created with REQ-IDs → **verified by user** → **committed**
 - [ ] bp-roadmapper spawned with context
 - [ ] Roadmap files written immediately (not draft)
+- [ ] Roadmap reviewed by user with structured summary (if interactive)
 - [ ] User feedback incorporated (if any)
 - [ ] ROADMAP.md created with phases, requirement mappings, success criteria
 - [ ] STATE.md initialized

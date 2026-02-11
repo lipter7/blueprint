@@ -39,6 +39,23 @@ Extract `commit_docs` from init JSON. Resolve debugger model:
 DEBUGGER_MODEL=$(node ~/.claude/blueprint/bin/blueprint-tools.js resolve-model bp-debugger --raw)
 ```
 
+## 0.5. Check Codebase Freshness (optional)
+
+If `.blueprint/codebase/` exists:
+
+```bash
+STALENESS=$(node ~/.claude/blueprint/bin/blueprint-tools.js codebase-staleness-check)
+```
+
+If `stale` is true AND `files_changed` > 30 (significantly stale — double the normal threshold):
+
+```
+Note: Codebase docs may be significantly outdated ({files_changed} files changed since last mapping).
+Debugging with current docs, but consider running `/bp:map-codebase` for better diagnostic context.
+```
+
+This is informational only — no prompt, no blocking. The debugger proceeds with existing docs.
+
 ## 1. Check Active Sessions
 
 If active sessions exist AND no $ARGUMENTS:

@@ -2031,3 +2031,446 @@ describe('scaffold command', () => {
     assert.strictEqual(output.reason, 'already_exists');
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// codebase-staleness-check command
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('codebase-staleness-check', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('returns never_mapped when no codebase map exists and no config metadata', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+
+    // Initialize as a git repo so git commands don't fail
+    execSync('git init', { cwd: tmpDir, stdio: 'pipe' });
+
+    const result = runBlueprintTools('codebase-staleness-check', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.never_mapped, true, 'should be never_mapped');
+    assert.strictEqual(output.has_maps, false, 'should have no maps');
+    assert.strictEqual(output.reason, 'never_mapped', 'reason should be never_mapped');
+  });
+
+  test('returns mapped_but_no_metadata when codebase dir exists but no metadata', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+    fs.mkdirSync(path.join(tmpDir, '.blueprint', 'codebase'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.blueprint', 'codebase', 'STACK.md'), '# Stack');
+
+    // Initialize as a git repo
+    execSync('git init', { cwd: tmpDir, stdio: 'pipe' });
+
+    const result = runBlueprintTools('codebase-staleness-check', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.reason, 'mapped_but_no_metadata', 'reason should be mapped_but_no_metadata');
+    assert.strictEqual(output.has_maps, true, 'should have maps');
+    assert.strictEqual(output.never_mapped, false, 'should not be never_mapped');
+  });
+
+  test('returns stale=false when last_mapped_commit equals HEAD', () => {
+    // Initialize a git repo with a commit
+    execSync('git init', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git add .', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git commit -m "initial" --allow-empty', { cwd: tmpDir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@test.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@test.com' } });
+    const headCommit = execSync('git rev-parse HEAD', { cwd: tmpDir, encoding: 'utf-8', stdio: 'pipe' }).trim();
+
+    fs.mkdirSync(path.join(tmpDir, '.blueprint', 'codebase'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.blueprint', 'codebase', 'STACK.md'), '# Stack');
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        codebase_mapping: {
+          last_mapped_at: '2024-01-15T10:00:00Z',
+          last_mapped_commit: headCommit,
+          docs_produced: ['STACK.md'],
+        },
+      })
+    );
+
+    const result = runBlueprintTools('codebase-staleness-check', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.stale, false, 'should not be stale');
+    assert.strictEqual(output.files_changed, 0, 'no files changed');
+  });
+
+  test('returns stale=true when commit not found', () => {
+    // Initialize a git repo with a commit
+    execSync('git init', { cwd: tmpDir, stdio: 'pipe' });
+    execSync('git commit -m "initial" --allow-empty', { cwd: tmpDir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@test.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@test.com' } });
+
+    fs.mkdirSync(path.join(tmpDir, '.blueprint', 'codebase'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.blueprint', 'codebase', 'STACK.md'), '# Stack');
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        codebase_mapping: {
+          last_mapped_at: '2024-01-15T10:00:00Z',
+          last_mapped_commit: 'deadbeef123deadbeef123deadbeef123deadbeef',
+          docs_produced: [],
+        },
+      })
+    );
+
+    const result = runBlueprintTools('codebase-staleness-check', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.stale, true, 'should be stale');
+    assert.strictEqual(output.reason, 'commit_not_found', 'reason should be commit_not_found');
+  });
+
+  test('handles non-git directory gracefully', () => {
+    // Create a separate non-git temp dir
+    const nonGitDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'bp-test-nogit-'));
+    fs.mkdirSync(path.join(nonGitDir, '.blueprint', 'codebase'), { recursive: true });
+    fs.writeFileSync(path.join(nonGitDir, '.blueprint', 'codebase', 'STACK.md'), '# Stack');
+    fs.writeFileSync(
+      path.join(nonGitDir, '.blueprint', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        codebase_mapping: {
+          last_mapped_at: '2024-01-15T10:00:00Z',
+          last_mapped_commit: 'abc123',
+          docs_produced: [],
+        },
+      })
+    );
+
+    try {
+      const result = runBlueprintTools('codebase-staleness-check', nonGitDir);
+      assert.ok(result.success, `Command failed: ${result.error}`);
+
+      const output = JSON.parse(result.output);
+      assert.strictEqual(output.reason, 'no_git', 'reason should be no_git');
+    } finally {
+      cleanup(nonGitDir);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// state compact command
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('state compact', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('compacts STATE.md preserving key sections', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'STATE.md'),
+      `# Project State
+
+## Project Reference
+
+See: .blueprint/PROJECT.md (updated 2024-01-01)
+**Core value:** Test project
+**Current focus:** Phase 1
+
+## Current Position
+
+Phase: 1 of 3 (Setup)
+Plan: 1 of 2 in current phase
+Status: In progress
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 5
+- Average duration: 10 min
+
+## Accumulated Context
+
+### Decisions
+
+- [Phase 1]: Used React
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- [Phase 1]: API rate limits may be an issue
+
+## Session Continuity
+
+Last session: 2024-01-15 10:00
+Stopped at: Completed auth module
+`
+    );
+
+    const result = runBlueprintTools('state compact', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.compacted, true, 'should be compacted');
+    assert.ok(output.sections_kept.includes('Key Learnings'), 'sections_kept includes Key Learnings');
+    assert.ok(output.sections_discarded.includes('Performance Metrics'), 'sections_discarded includes Performance Metrics');
+
+    // Read the file back and verify contents
+    const compacted = fs.readFileSync(path.join(tmpDir, '.blueprint', 'STATE.md'), 'utf-8');
+    assert.ok(compacted.includes('## Project Reference'), 'contains Project Reference section');
+    assert.ok(compacted.includes('## Current Position'), 'contains Current Position section');
+    assert.ok(compacted.includes('## Key Learnings'), 'contains Key Learnings section');
+    assert.ok(compacted.includes('## Active Blockers'), 'contains Active Blockers section');
+    assert.ok(compacted.includes('API rate limits'), 'contains blocker text');
+    assert.ok(!compacted.includes('## Performance Metrics'), 'does NOT contain Performance Metrics');
+    assert.ok(!compacted.includes('## Session Continuity'), 'does NOT contain Session Continuity');
+    assert.ok(!compacted.includes('## Accumulated Context'), 'does NOT contain Accumulated Context');
+  });
+
+  test('preserves active blockers', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'STATE.md'),
+      `# Project State
+
+## Project Reference
+
+See: .blueprint/PROJECT.md
+
+## Current Position
+
+Phase: 2
+
+## Accumulated Context
+
+### Blockers/Concerns
+
+- [Phase 1]: Database migration fails on CI
+- [Phase 2]: Third-party API timeout issues
+
+## Session Continuity
+
+Last session: 2024-02-01
+`
+    );
+
+    const result = runBlueprintTools('state compact', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const compacted = fs.readFileSync(path.join(tmpDir, '.blueprint', 'STATE.md'), 'utf-8');
+    assert.ok(compacted.includes('Database migration fails on CI'), 'first blocker preserved');
+    assert.ok(compacted.includes('Third-party API timeout issues'), 'second blocker preserved');
+  });
+
+  test('handles no blockers gracefully', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'STATE.md'),
+      `# Project State
+
+## Project Reference
+
+See: .blueprint/PROJECT.md
+
+## Current Position
+
+Phase: 1
+
+## Accumulated Context
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2024-01-01
+`
+    );
+
+    const result = runBlueprintTools('state compact', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const compacted = fs.readFileSync(path.join(tmpDir, '.blueprint', 'STATE.md'), 'utf-8');
+    assert.ok(compacted.includes('## Active Blockers'), 'Active Blockers section exists');
+    assert.ok(compacted.includes('None.'), 'Active Blockers contains None.');
+  });
+
+  test('errors when STATE.md not found', () => {
+    // No STATE.md file exists
+    const result = runBlueprintTools('state compact', tmpDir);
+    assert.strictEqual(result.success, false, 'should fail when STATE.md not found');
+    assert.ok(result.error.includes('STATE.md not found'), 'error mentions STATE.md not found');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// codebase_mapping in config
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('codebase_mapping in config', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('init map-codebase includes mapping metadata', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({
+        model_profile: 'balanced',
+        codebase_mapping: {
+          last_mapped_at: '2024-06-15T12:00:00Z',
+          last_mapped_commit: 'abc123def456',
+          docs_produced: ['STACK.md', 'ARCHITECTURE.md'],
+        },
+      })
+    );
+
+    const result = runBlueprintTools('init map-codebase', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.last_mapped_at, '2024-06-15T12:00:00Z', 'last_mapped_at should match config');
+    assert.strictEqual(output.last_mapped_commit, 'abc123def456', 'last_mapped_commit should match config');
+  });
+
+  test('init map-codebase returns nulls when no codebase_mapping in config', () => {
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+
+    const result = runBlueprintTools('init map-codebase', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.last_mapped_at, null, 'last_mapped_at should be null');
+    assert.strictEqual(output.last_mapped_commit, null, 'last_mapped_commit should be null');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// init function staleness fields
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('init function staleness fields', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+    fs.writeFileSync(
+      path.join(tmpDir, '.blueprint', 'config.json'),
+      JSON.stringify({ model_profile: 'balanced' })
+    );
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('init verify-work includes staleness fields', () => {
+    const phaseDir = path.join(tmpDir, '.blueprint', 'phases', '01-foundation');
+    fs.mkdirSync(phaseDir, { recursive: true });
+
+    const result = runBlueprintTools('init verify-work 1', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.ok('mapper_model' in output, 'should include mapper_model');
+    assert.ok('has_codebase_map' in output, 'should include has_codebase_map');
+    assert.ok('has_git' in output, 'should include has_git');
+  });
+
+  test('init new-milestone includes staleness fields', () => {
+    const result = runBlueprintTools('init new-milestone', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.ok('mapper_model' in output, 'should include mapper_model');
+    assert.ok('has_codebase_map' in output, 'should include has_codebase_map');
+    assert.ok('has_git' in output, 'should include has_git');
+  });
+
+  test('init milestone-op includes mapper_model', () => {
+    const result = runBlueprintTools('init milestone-op', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.ok('mapper_model' in output, 'should include mapper_model');
+    assert.ok('has_codebase_map' in output, 'should include has_codebase_map');
+    assert.ok('has_git' in output, 'should include has_git');
+  });
+
+  test('init new-project includes mapper_model', () => {
+    const result = runBlueprintTools('init new-project', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.ok('mapper_model' in output, 'should include mapper_model');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// config-ensure-section Phase 4 defaults
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('config-ensure-section Phase 4 defaults', () => {
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = createTempProject();
+  });
+
+  afterEach(() => {
+    cleanup(tmpDir);
+  });
+
+  test('newly created config includes codebase_mapping and agent_models', () => {
+    // .blueprint dir exists but NO config.json
+    const result = runBlueprintTools('config-ensure-section', tmpDir);
+    assert.ok(result.success, `Command failed: ${result.error}`);
+
+    const output = JSON.parse(result.output);
+    assert.strictEqual(output.created, true, 'config should be created');
+
+    // Read the config file back
+    const configContent = fs.readFileSync(path.join(tmpDir, '.blueprint', 'config.json'), 'utf-8');
+    const config = JSON.parse(configContent);
+
+    // Assert codebase_mapping defaults
+    assert.ok(config.codebase_mapping, 'config should have codebase_mapping');
+    assert.strictEqual(config.codebase_mapping.last_mapped_at, null, 'last_mapped_at should be null');
+    assert.strictEqual(config.codebase_mapping.last_mapped_commit, null, 'last_mapped_commit should be null');
+    assert.ok(Array.isArray(config.codebase_mapping.docs_produced), 'docs_produced should be an array');
+
+    // Assert agent_models defaults
+    assert.ok('agent_models' in config, 'config should have agent_models');
+    assert.deepStrictEqual(config.agent_models, {}, 'agent_models should be empty object');
+  });
+});

@@ -346,24 +346,99 @@ mkdir -p ".blueprint/phases/${padded_phase}-${phase_slug}"
 Write file.
 </step>
 
-<step name="confirm_creation">
-Present summary and next steps:
+<step name="verify_context">
+Post-write verification gate for CONTEXT.md.
+
+**Auto mode:** If running in auto mode (`mode: "yolo"`), skip the gate:
+```
+✓ CONTEXT.md created at ${phase_dir}/${padded_phase}-CONTEXT.md ({line_count} lines)
+```
+Proceed directly to git_commit.
+
+**Interactive mode:**
+
+**1. Read back the artifact:**
+```bash
+cat ${phase_dir}/${padded_phase}-CONTEXT.md
+```
+Parse content to extract phase boundary, decisions by area, Claude's discretion areas, deferred ideas, and specific references.
+
+**2. Generate summary using CONTEXT.md summary format:**
+
+Extract and display:
+
+- **Phase boundary:** {one-line scope from Phase Boundary section}
+- **Decisions made:** For each area discussed: **{Area name}:** {1-2 sentence summary of key decisions}
+- **Claude's discretion:** {comma-separated list of areas}
+- **Deferred ideas:** {count} ideas captured for future phases
+- **Specific references:** {any "I want it like X" moments, or "None"}
+
+**3. Present with banner:**
 
 ```
-Created: .blueprint/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► REVIEW: Phase {N} Context
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-## Decisions Captured
+**Phase boundary:** {one-line scope}
 
-### [Category]
-- [Key decision]
+**Decisions made:**
+- **{Area 1}:** {summary}
+- **{Area 2}:** {summary}
 
-### [Category]
-- [Key decision]
+**Claude's discretion:** {areas}
 
-[If deferred ideas exist:]
-## Noted for Later
-- [Deferred idea] — future phase
+**Deferred ideas:** {count} ideas captured for future phases
 
+**Specific references:** {references or "None"}
+```
+
+**4. Ask for confirmation:**
+
+AskUserQuestion:
+- header: "Context"
+- question: "Does this accurately capture what you described?"
+- options:
+  - "Approve" — Looks good, proceed
+  - "Corrections" — I want to change some things
+  - "Review full file" — Show me the raw file first
+
+**5. Handle response:**
+
+**If "Approve":** Proceed to git_commit.
+
+**If "Corrections":**
+- Ask: "What would you like to change?"
+- Wait for freeform response
+- Apply corrections to the file using Edit tool (targeted edits, not full rewrite)
+- Re-read the file:
+  ```bash
+  cat ${phase_dir}/${padded_phase}-CONTEXT.md
+  ```
+- Re-generate summary from updated content
+- Re-present banner and summary (loop back to step 3)
+- Re-ask for confirmation (loop back to step 4)
+
+**If "Review full file":**
+- Display raw file content:
+  ```bash
+  cat ${phase_dir}/${padded_phase}-CONTEXT.md
+  ```
+- Re-ask for confirmation (loop back to step 4, without re-displaying summary)
+</step>
+
+<step name="git_commit">
+Commit phase context (uses `commit_docs` from init internally):
+
+```bash
+node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs(${padded_phase}): capture phase context" --files "${phase_dir}/${padded_phase}-CONTEXT.md"
+```
+
+Confirm: "Committed: docs(${padded_phase}): capture phase context"
+
+**Then display next steps:**
+
+```
 ---
 
 ## ▶ Next Up
@@ -382,16 +457,6 @@ Created: .blueprint/phases/${PADDED_PHASE}-${SLUG}/${PADDED_PHASE}-CONTEXT.md
 
 ---
 ```
-</step>
-
-<step name="git_commit">
-Commit phase context (uses `commit_docs` from init internally):
-
-```bash
-node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs(${padded_phase}): capture phase context" --files "${phase_dir}/${padded_phase}-CONTEXT.md"
-```
-
-Confirm: "Committed: docs(${padded_phase}): capture phase context"
 </step>
 
 </process>

@@ -163,6 +163,37 @@ Enables instant resumption:
 
 </sections>
 
+<compaction>
+
+### Post-Milestone Compaction
+
+After milestone completion, STATE.md is aggressively compacted. The `state compact` command handles this automatically as part of the `complete-milestone` workflow.
+
+**What survives compaction:**
+- **Project Reference** — unchanged
+- **Current Position** — updated to reflect new milestone starting state
+- **Key Learnings** (replaces Accumulated Context) — 3-5 distilled insights
+- **Active Blockers** — unresolved blockers that carry forward
+
+**What is discarded:**
+- Performance Metrics table (detail lives in SUMMARY.md files)
+- Accumulated Decisions (full log in PROJECT.md)
+- Resolved blockers
+- Session Continuity section (reset for new milestone)
+
+**Key Learnings format:**
+```markdown
+## Key Learnings
+
+- [Insight about development process, architecture, or testing that affects future work]
+- [Pattern discovered that should inform future phases]
+- [Technical constraint or risk identified during this milestone]
+```
+
+The compacted STATE.md should be well under 100 lines.
+
+</compaction>
+
 <size_constraint>
 
 Keep STATE.md under 100 lines.

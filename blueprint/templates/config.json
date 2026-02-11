@@ -31,5 +31,11 @@
   "safety": {
     "always_confirm_destructive": true,
     "always_confirm_external_services": true
-  }
+  },
+  "codebase_mapping": {
+    "last_mapped_at": null,
+    "last_mapped_commit": null,
+    "docs_produced": []
+  },
+  "agent_models": {}
 }

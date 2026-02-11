@@ -27,7 +27,7 @@ If $ARGUMENTS contains a phase number, load context:
 INIT=$(node ~/.claude/blueprint/bin/blueprint-tools.js init verify-work "${PHASE_ARG}")
 ```
 
-Parse JSON for: `planner_model`, `checker_model`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `has_verification`.
+Parse JSON for: `planner_model`, `checker_model`, `mapper_model`, `commit_docs`, `phase_found`, `phase_dir`, `phase_number`, `phase_name`, `has_verification`, `has_codebase_map`, `has_git`.
 </step>
 
 <step name="check_active_session">
@@ -516,6 +516,54 @@ Plans verified and ready for execution.
 
 ───────────────────────────────────────────────────────────────
 ```
+</step>
+
+<step name="check_codebase_staleness">
+**Check if codebase mapping is stale:**
+
+```bash
+STALENESS=$(node ~/.claude/blueprint/bin/blueprint-tools.js codebase-staleness-check)
+```
+
+Parse `STALENESS` JSON. Extract `stale`, `never_mapped`, `has_maps`, `summary`, `last_mapped_at`, `files_changed`, `lines_added`, `lines_removed`.
+
+**If `stale` is false AND `never_mapped` is false:** Continue silently to the next step.
+
+**If `never_mapped` is true:** Skip staleness check — no codebase map exists. The user can run `/bp:map-codebase` separately if needed.
+
+**If `stale` is true:**
+
+Present to the user via `AskUserQuestion`:
+
+```
+Codebase mapping may be stale.
+Last mapped: {last_mapped_at}
+Changes since: {files_changed} files, +{lines_added}/-{lines_removed} lines
+
+{summary}
+```
+
+**Options:**
+1. **Full remap** — Re-run all 4 mapping agents (recommended if significant structural changes)
+2. **Skip** — Continue with current codebase docs
+
+**If user chooses Full remap:**
+
+Spawn 4 bp-codebase-mapper agents in parallel, identical to the `map-codebase` workflow's `spawn_agents` step. Use `mapper_model` from the init context. After all 4 complete:
+
+1. Verify all 7 docs exist in `.blueprint/codebase/`
+2. Commit: `node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: remap codebase (staleness detected)" --files .blueprint/codebase/*.md`
+3. Update mapping metadata:
+   ```bash
+   COMMIT=$(git rev-parse --short HEAD)
+   TIMESTAMP=$(node ~/.claude/blueprint/bin/blueprint-tools.js current-timestamp full)
+   node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_at" "$TIMESTAMP"
+   node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_commit" "$COMMIT"
+   node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: update codebase mapping metadata" --files .blueprint/config.json
+   ```
+
+**If user chooses Skip:** Continue to the next step.
+
 </step>
 
 </process>

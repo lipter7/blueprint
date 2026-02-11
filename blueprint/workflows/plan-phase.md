@@ -61,6 +61,60 @@ If `context_content` is not null, display: `Using phase context from: ${PHASE_DI
 
 **If RESEARCH.md missing OR `--research` flag:**
 
+### Pre-Research Interview
+
+**Skip interview if:** auto mode, `--skip-research` flag, `--gaps` flag, `research_enabled` is false without `--research` override, or research already exists and no `--research` flag.
+
+Display banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► PRE-RESEARCH INTERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+AskUserQuestion (3 questions in 1 round):
+
+1. header: "Focus"
+   question: "What should research for Phase {phase_number} ({phase_name}) focus on?"
+   multiSelect: true
+   options:
+   - "Implementation patterns" — How to build {phase domain}
+   - "Library/API selection" — Best tools for {phase domain}
+   - "Integration approach" — How {phase domain} connects to existing code
+   - "Known gotchas" — Specific problems I've seen in {phase domain}
+
+2. header: "Constraints"
+   question: "Any constraints for this phase's technical approach?"
+   options:
+   - "Yes, let me describe" — I have specific constraints
+   - "Use project conventions" — Follow what's established
+   - "Research should recommend" — No additional constraints
+
+3. header: "Depth"
+   question: "How deep should research go?"
+   options:
+   - "Thorough" — Comprehensive investigation (slower, more tokens)
+   - "Focused" — Key decisions only (faster, fewer tokens)
+   - "Verify only" — I know the approach, just validate it
+
+**If "Yes, let me describe" for Q2:** Ask freeform "Describe the constraints:" and capture response.
+
+Format responses into `user_research_guidance`:
+
+```markdown
+<user_research_guidance>
+## User Research Guidance
+
+**Focus areas:** {selected areas from Q1}
+**Phase constraints:** {user's description or "Use project conventions"}
+**Known problems:** {from constraints description or "None specified"}
+**Conventions:** {user's preferences or "Research should recommend"}
+**Depth:** {thorough/focused/verify-only from Q3}
+</user_research_guidance>
+```
+
+### Spawn Researcher
+
 Display banner:
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -69,8 +123,6 @@ Display banner:
 
 ◆ Spawning researcher...
 ```
-
-### Spawn bp-phase-researcher
 
 ```bash
 PHASE_DESC=$(node ~/.claude/blueprint/bin/blueprint-tools.js roadmap get-phase "${PHASE}" | jq -r '.section')
@@ -103,6 +155,8 @@ IMPORTANT: If CONTEXT.md exists below, it contains user decisions from /bp:discu
 **Prior decisions:** {decisions}
 </additional_context>
 
+{user_research_guidance}
+
 <output>
 Write to: {phase_dir}/{phase}-RESEARCH.md
 </output>
@@ -119,8 +173,56 @@ Task(
 
 ### Handle Researcher Return
 
-- **`## RESEARCH COMPLETE`:** Display confirmation, continue to step 6
+- **`## RESEARCH COMPLETE`:** Continue to post-research summary below.
 - **`## RESEARCH BLOCKED`:** Display blocker, offer: 1) Provide context, 2) Skip research, 3) Abort
+
+### Post-Research Summary
+
+**Skip in auto mode** — auto-approve, pass research to planner immediately (continue to step 6).
+
+Read RESEARCH.md and display an abbreviated summary:
+
+```bash
+RESEARCH_CONTENT_NEW=$(cat "${PHASE_DIR}"/*-RESEARCH.md 2>/dev/null)
+```
+
+Display banner and abbreviated findings:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► RESEARCH FINDINGS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Confidence: {HIGH/MEDIUM/LOW}
+Stack: {top 3-5 key libraries, comma-separated}
+Key pattern: {primary architecture recommendation, one line}
+Top pitfall: {most critical pitfall name — one-line description}
+Open questions: {count} unresolved
+```
+
+AskUserQuestion:
+- header: "Findings"
+- question: "Research complete. How would you like to proceed?"
+- options:
+  - "Proceed to planning (Recommended)" — Findings are good
+  - "Review findings" — Let me review before planning
+  - "Adjust research" — Re-run with different focus
+
+**Handle responses:**
+
+**If "Proceed to planning (Recommended)":** Continue to step 6 (check existing plans) then step 8 (spawn planner).
+
+**If "Review findings":** Display full RESEARCH.md content, then re-ask the same AskUserQuestion above.
+
+**If "Adjust research":** Ask freeform "What should change?" and capture response. Re-spawn bp-phase-researcher with the original research prompt plus the user's updated guidance appended as:
+
+```markdown
+<research_adjustment>
+## Adjustment from User
+{user's freeform response describing what should change}
+</research_adjustment>
+```
+
+After researcher returns, re-enter the post-research summary gate (read RESEARCH.md, display abbreviated summary, re-ask).
 
 ## 6. Check Existing Plans
 
@@ -364,8 +466,10 @@ Verification: {Passed | Passed with override | Skipped}
 - [ ] Phase validated against roadmap
 - [ ] Phase directory created if needed
 - [ ] CONTEXT.md loaded early (step 4) and passed to ALL agents
+- [ ] Pre-research interview conducted (unless auto mode or research skipped)
 - [ ] Research completed (unless --skip-research or --gaps or exists)
-- [ ] bp-phase-researcher spawned with CONTEXT.md
+- [ ] bp-phase-researcher spawned with CONTEXT.md and user_research_guidance
+- [ ] Post-research summary displayed and user approved (unless auto mode)
 - [ ] Existing plans checked
 - [ ] bp-planner spawned with CONTEXT.md + RESEARCH.md
 - [ ] Plans created (PLANNING COMPLETE or CHECKPOINT handled)

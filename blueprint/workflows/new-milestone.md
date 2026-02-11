@@ -19,6 +19,53 @@ Read all files referenced by the invoking prompt's execution_context before star
 - Read STATE.md (pending todos, blockers)
 - Check for MILESTONE-CONTEXT.md (from /bp:discuss-milestone)
 
+## 1.5. Check Codebase Staleness
+
+**If `has_codebase_map` is true AND `has_git` is true:**
+
+```bash
+STALENESS=$(node ~/.claude/blueprint/bin/blueprint-tools.js codebase-staleness-check)
+```
+
+Parse `STALENESS` JSON. Extract `stale`, `never_mapped`, `has_maps`, `summary`, `last_mapped_at`, `files_changed`, `lines_added`, `lines_removed`.
+
+**If `stale` is false AND `never_mapped` is false:** Continue silently to the next step.
+
+**If `never_mapped` is true:** Skip staleness check — no codebase map exists. The user can run `/bp:map-codebase` separately if needed.
+
+**If `stale` is true:**
+
+Present to the user via `AskUserQuestion`:
+
+```
+Codebase mapping may be stale.
+Last mapped: {last_mapped_at}
+Changes since: {files_changed} files, +{lines_added}/-{lines_removed} lines
+
+{summary}
+```
+
+**Options:**
+1. **Full remap** — Re-run all 4 mapping agents (recommended if significant structural changes)
+2. **Skip** — Continue with current codebase docs
+
+**If user chooses Full remap:**
+
+Spawn 4 bp-codebase-mapper agents in parallel, identical to the `map-codebase` workflow's `spawn_agents` step. Use `mapper_model` from the init context. After all 4 complete:
+
+1. Verify all 7 docs exist in `.blueprint/codebase/`
+2. Commit: `node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: remap codebase (staleness detected)" --files .blueprint/codebase/*.md`
+3. Update mapping metadata:
+   ```bash
+   COMMIT=$(git rev-parse --short HEAD)
+   TIMESTAMP=$(node ~/.claude/blueprint/bin/blueprint-tools.js current-timestamp full)
+   node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_at" "$TIMESTAMP"
+   node ~/.claude/blueprint/bin/blueprint-tools.js config-set "codebase_mapping.last_mapped_commit" "$COMMIT"
+   node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: update codebase mapping metadata" --files .blueprint/config.json
+   ```
+
+**If user chooses Skip:** Continue to the next step.
+
 ## 2. Gather Milestone Goals
 
 **If MILESTONE-CONTEXT.md exists:**
@@ -80,7 +127,7 @@ node ~/.claude/blueprint/bin/blueprint-tools.js commit "docs: start milestone v[
 INIT=$(node ~/.claude/blueprint/bin/blueprint-tools.js init new-milestone)
 ```
 
-Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`.
+Extract from init JSON: `researcher_model`, `synthesizer_model`, `roadmapper_model`, `mapper_model`, `commit_docs`, `research_enabled`, `current_milestone`, `project_exists`, `roadmap_exists`, `has_codebase_map`, `has_git`.
 
 ## 8. Research Decision
 
@@ -109,6 +156,83 @@ node ~/.claude/blueprint/bin/blueprint-tools.js config-set workflow.research fal
   → Stack, Features, Architecture, Pitfalls
 ```
 
+### 8a. Pre-Research Interview
+
+**If auto mode:** Skip interview entirely. Researchers receive default context (all focus areas, no known problems, "Research should recommend"). Proceed directly to research directory creation.
+
+**Interactive mode:**
+
+Display interview banner:
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► PRE-RESEARCH INTERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your input shapes what researchers investigate.
+Quick 2-round interview — skip with default answers if unsure.
+
+**Existing system context:** Subsequent milestone — focus research on NEW features only.
+Existing validated capabilities: {list from PROJECT.md Validated section}
+```
+
+**Round 1 (2 questions):**
+
+AskUserQuestion:
+- header: "Focus"
+- question: "What aspects of {domain} should research focus on?"
+- multiSelect: true
+- options:
+  - "Technology stack" — Best frameworks, libraries, databases for this domain
+  - "Architecture patterns" — How to structure the system, component design
+  - "Feature landscape" — What users expect, table stakes vs differentiators
+  - "Common pitfalls" — What goes wrong, what to avoid
+
+AskUserQuestion:
+- header: "Known"
+- question: "Are there known technical challenges or constraints?"
+- options:
+  - "Yes, let me describe" — I know specific issues to investigate
+  - "Not sure" — Research should discover these
+  - "Domain is new to me" — Full ecosystem discovery needed
+
+**If "Yes, let me describe":**
+Ask freeform: "Describe the known challenges or constraints:"
+Wait for response. Capture as known_problems context.
+
+**Round 2:**
+
+AskUserQuestion:
+- header: "Conventions"
+- question: "Any technology preferences or conventions to follow?"
+- options:
+  - "Yes, let me specify" — I have stack/pattern preferences
+  - "Research should recommend" — No strong preferences
+  - "Must match existing codebase" — Research should check compatibility
+
+**If "Yes, let me specify":**
+Ask freeform: "Describe your technology preferences or conventions:"
+Wait for response. Capture as conventions context.
+
+**Format interview responses:**
+
+Assemble all responses into a structured block:
+
+```markdown
+<user_research_guidance>
+## User Research Guidance
+
+**Existing system context:** Subsequent milestone — focus research on NEW features only.
+Existing validated capabilities: {list from PROJECT.md Validated section}
+
+**Focus areas:** {selected focus areas from Q1, comma-separated}
+**Known problems:** {known_problems_text or "None specified — discover during research"}
+**Conventions:** {conventions_text or "Research should recommend"}
+**Domain familiarity:** {new to me / not sure / experienced (inferred from answers)}
+</user_research_guidance>
+```
+
+This `<user_research_guidance>` block is appended after `<project_context>` in ALL 4 researcher spawn prompts below.
+
 ```bash
 mkdir -p .blueprint/research
 ```
@@ -129,6 +253,8 @@ Focus ONLY on what's needed for the NEW features.
 <question>{QUESTION}</question>
 
 <project_context>[PROJECT.md summary]</project_context>
+
+{user_research_guidance block from interview — omit if auto mode}
 
 <downstream_consumer>{CONSUMER}</downstream_consumer>
 
@@ -175,6 +301,96 @@ Display key findings from SUMMARY.md:
 **Feature table stakes:** [from SUMMARY.md]
 **Watch Out For:** [from SUMMARY.md]
 ```
+
+### 8b. Post-Research Verification Gate
+
+**Reference:** See `~/.claude/blueprint/references/verification-gates.md` — Research Summary (Project-Level) format.
+
+**If auto mode:** Skip gate. Display brief confirmation and auto-proceed to Step 9:
+```
+✓ Research complete — .blueprint/research/SUMMARY.md ({line_count} lines)
+```
+
+**Interactive mode:**
+
+Read SUMMARY.md:
+```bash
+cat .blueprint/research/SUMMARY.md
+```
+
+Generate summary using the project-level research summary format:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Blueprint ► REVIEW: Research Findings
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+**Domain:** {type of product}
+**Overall confidence:** {HIGH/MEDIUM/LOW}
+
+**Recommended stack:**
+| Library | Version | Purpose |
+(top 5 from STACK.md)
+
+**Table stakes features:** {count} identified
+**Top differentiators:** {2-3 most impactful from FEATURES.md}
+
+**Critical pitfall:** {most important from PITFALLS.md}
+
+**Roadmap implications:**
+1. {Phase suggestion}: {rationale}
+2. {Phase suggestion}: {rationale}
+
+**Gaps:** {areas needing attention}
+```
+
+AskUserQuestion:
+- header: "Research"
+- question: "Do these findings match your understanding of this domain?"
+- options:
+  - "Approve" — Findings look right, proceed to requirements
+  - "Dig deeper" — I want to investigate specific areas more
+  - "Corrections" — Some findings are wrong or missing context
+  - "Review full files" — Show me the raw research files
+
+Handle response:
+
+**"Approve":** Proceed to Step 9 (Define Requirements).
+
+**"Dig deeper":**
+- AskUserQuestion:
+  - header: "Investigate"
+  - question: "Which area needs deeper investigation?"
+  - options:
+    - "Stack choices" — Question specific technology recommendations
+    - "Architecture" — Need more detail on system structure
+    - "Pitfalls" — Want to explore specific risks
+    - "Feature gaps" — Missing features or wrong categorization
+- Capture user's specific concerns as freeform input
+- Spawn a single `bp-project-researcher` agent with:
+  - The specific dimension to investigate
+  - User's concerns as additional context
+  - Instructions to UPDATE the existing research file (not overwrite)
+- After agent returns, re-read SUMMARY.md (or re-synthesize if dimension file changed significantly)
+- Re-enter this gate
+
+**"Corrections":**
+- Ask: "What needs correcting?"
+- Apply targeted edits to relevant research file(s)
+- Re-read and re-summarize
+- Re-ask
+
+**"Review full files":**
+- AskUserQuestion:
+  - header: "Which file?"
+  - question: "Which research file do you want to review?"
+  - options:
+    - "SUMMARY.md" — Synthesized overview
+    - "STACK.md" — Technology recommendations
+    - "FEATURES.md" — Feature landscape
+    - "ARCHITECTURE.md" — System architecture and pitfalls
+- Display selected file
+- Re-ask confirmation
 
 **If "Skip research":** Continue to Step 9.
 
@@ -359,7 +575,9 @@ Also: `/bp:plan-phase [N]` — skip discussion, plan directly
 - [ ] PROJECT.md updated with Current Milestone section
 - [ ] STATE.md reset for new milestone
 - [ ] MILESTONE-CONTEXT.md consumed and deleted (if existed)
+- [ ] Pre-research interview completed (if research selected, interactive mode)
 - [ ] Research completed (if selected) — 4 parallel agents, milestone-aware
+- [ ] Post-research findings reviewed and approved (if research selected, interactive mode)
 - [ ] Requirements gathered and scoped per category
 - [ ] REQUIREMENTS.md created with REQ-IDs
 - [ ] bp-roadmapper spawned with phase numbering context

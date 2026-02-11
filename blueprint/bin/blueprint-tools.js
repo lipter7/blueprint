@@ -168,6 +168,7 @@ function loadConfig(cwd) {
     verifier: true,
     parallelization: true,
     brave_search: false,
+    codebase_mapping: { last_mapped_at: null, last_mapped_commit: null, docs_produced: [] },
   };
 
   try {
@@ -201,6 +202,17 @@ function loadConfig(cwd) {
       verifier: get('verifier', { section: 'workflow', field: 'verifier' }) ?? defaults.verifier,
       parallelization,
       brave_search: get('brave_search') ?? defaults.brave_search,
+      codebase_mapping: (() => {
+        const cm = parsed.codebase_mapping;
+        if (typeof cm === 'object' && cm !== null) {
+          return {
+            last_mapped_at: cm.last_mapped_at || null,
+            last_mapped_commit: cm.last_mapped_commit || null,
+            docs_produced: Array.isArray(cm.docs_produced) ? cm.docs_produced : [],
+          };
+        }
+        return { last_mapped_at: null, last_mapped_commit: null, docs_produced: [] };
+      })(),
     };
   } catch {
     return defaults;
@@ -608,6 +620,12 @@ function cmdConfigEnsureSection(cwd, raw) {
     },
     parallelization: true,
     brave_search: hasBraveSearch,
+    codebase_mapping: {
+      last_mapped_at: null,
+      last_mapped_commit: null,
+      docs_produced: [],
+    },
+    agent_models: {},
   };
 
   try {
@@ -1320,6 +1338,14 @@ function cmdResolveModel(cwd, agentType, raw) {
 
   const config = loadConfig(cwd);
   const profile = config.model_profile || 'balanced';
+
+  // Check per-agent override first (per-agent model config)
+  if (config.agent_models && config.agent_models[agentType]) {
+    const model = config.agent_models[agentType];
+    const result = { model, profile, override: true };
+    output(result, raw, model);
+    return;
+  }
 
   const agentModels = MODEL_PROFILES[agentType];
   if (!agentModels) {
@@ -3472,11 +3498,206 @@ function cmdScaffold(cwd, type, options, raw) {
   output({ created: true, path: relPath }, raw, relPath);
 }
 
+// ─── Codebase Staleness Check ────────────────────────────────────────────────
+
+function cmdCodebaseStalenessCheck(cwd, raw) {
+  const config = loadConfig(cwd);
+  const cm = config.codebase_mapping;
+
+  // No mapping metadata → never mapped
+  if (!cm || !cm.last_mapped_commit) {
+    const hasMaps = pathExistsInternal(cwd, '.blueprint/codebase');
+    output({
+      stale: false,
+      never_mapped: !hasMaps,
+      has_maps: hasMaps,
+      reason: hasMaps ? 'mapped_but_no_metadata' : 'never_mapped',
+      last_mapped_at: null,
+      last_mapped_commit: null,
+      files_changed: 0,
+      lines_added: 0,
+      lines_removed: 0,
+      summary: hasMaps
+        ? 'Codebase map exists but has no tracking metadata. Consider remapping.'
+        : 'No codebase map found.',
+    }, raw);
+    return;
+  }
+
+  // Check if git is available
+  const gitCheck = execGit(cwd, ['rev-parse', '--is-inside-work-tree']);
+  if (gitCheck.exitCode !== 0) {
+    output({
+      stale: false,
+      never_mapped: false,
+      has_maps: true,
+      reason: 'no_git',
+      last_mapped_at: cm.last_mapped_at,
+      last_mapped_commit: cm.last_mapped_commit,
+      files_changed: 0,
+      lines_added: 0,
+      lines_removed: 0,
+      summary: 'Not a git repository. Cannot check staleness.',
+    }, raw);
+    return;
+  }
+
+  // Verify the stored commit exists
+  const commitCheck = execGit(cwd, ['cat-file', '-t', cm.last_mapped_commit]);
+  if (commitCheck.exitCode !== 0) {
+    output({
+      stale: true,
+      never_mapped: false,
+      has_maps: true,
+      reason: 'commit_not_found',
+      last_mapped_at: cm.last_mapped_at,
+      last_mapped_commit: cm.last_mapped_commit,
+      files_changed: -1,
+      lines_added: -1,
+      lines_removed: -1,
+      summary: `Stored commit ${cm.last_mapped_commit} not found. Remap recommended.`,
+    }, raw);
+    return;
+  }
+
+  // Run git diff --stat, excluding .blueprint/ and .planning/ directories
+  const diffResult = execGit(cwd, [
+    'diff', '--stat', `${cm.last_mapped_commit}..HEAD`,
+    '--', '.', ':!.blueprint', ':!.planning',
+  ]);
+
+  if (diffResult.exitCode !== 0) {
+    output({
+      stale: false,
+      never_mapped: false,
+      has_maps: true,
+      reason: 'diff_error',
+      last_mapped_at: cm.last_mapped_at,
+      last_mapped_commit: cm.last_mapped_commit,
+      files_changed: 0,
+      lines_added: 0,
+      lines_removed: 0,
+      summary: 'Could not compute diff: ' + diffResult.stderr,
+    }, raw);
+    return;
+  }
+
+  // Parse diff --stat output
+  // Last line looks like: " 15 files changed, 200 insertions(+), 50 deletions(-)"
+  const lines = diffResult.stdout.split('\n').filter(l => l.trim());
+  const summaryLine = lines[lines.length - 1] || '';
+
+  let filesChanged = 0;
+  let linesAdded = 0;
+  let linesRemoved = 0;
+
+  const filesMatch = summaryLine.match(/(\d+)\s+files?\s+changed/);
+  const insertMatch = summaryLine.match(/(\d+)\s+insertions?\(\+\)/);
+  const deleteMatch = summaryLine.match(/(\d+)\s+deletions?\(-\)/);
+
+  if (filesMatch) filesChanged = parseInt(filesMatch[1], 10);
+  if (insertMatch) linesAdded = parseInt(insertMatch[1], 10);
+  if (deleteMatch) linesRemoved = parseInt(deleteMatch[1], 10);
+
+  // Staleness heuristic: >10 files changed OR >200 lines changed
+  const totalLinesChanged = linesAdded + linesRemoved;
+  const isStale = filesChanged > 10 || totalLinesChanged > 200;
+
+  output({
+    stale: isStale,
+    never_mapped: false,
+    has_maps: true,
+    reason: isStale ? 'significant_changes' : 'within_threshold',
+    last_mapped_at: cm.last_mapped_at,
+    last_mapped_commit: cm.last_mapped_commit,
+    files_changed: filesChanged,
+    lines_added: linesAdded,
+    lines_removed: linesRemoved,
+    diff_summary: summaryLine.trim(),
+    summary: isStale
+      ? `Codebase changed since last mapping: ${filesChanged} files, +${linesAdded}/-${linesRemoved} lines.`
+      : `Codebase changes within threshold: ${filesChanged} files, +${linesAdded}/-${linesRemoved} lines.`,
+  }, raw);
+}
+
+// ─── State Compact ───────────────────────────────────────────────────────────
+
+function cmdStateCompact(cwd, raw) {
+  const statePath = path.join(cwd, '.blueprint', 'STATE.md');
+
+  if (!fs.existsSync(statePath)) {
+    error('STATE.md not found at .blueprint/STATE.md');
+  }
+
+  const content = fs.readFileSync(statePath, 'utf-8');
+
+  // Extract Project Reference section
+  const projectRefMatch = content.match(
+    /## Project Reference\s*\n([\s\S]*?)(?=\n## )/
+  );
+  const projectRef = projectRefMatch ? projectRefMatch[1].trim() : 'See: .blueprint/PROJECT.md';
+
+  // Extract Current Position section
+  const currentPosMatch = content.match(
+    /## Current Position\s*\n([\s\S]*?)(?=\n## )/
+  );
+  const currentPos = currentPosMatch ? currentPosMatch[1].trim() : '';
+
+  // Extract active blockers (non-resolved)
+  const blockersMatch = content.match(
+    /### Blockers\/Concerns\s*\n([\s\S]*?)(?=\n## |\n###|$)/
+  );
+  let activeBlockers = 'None.';
+  if (blockersMatch) {
+    const blockerLines = blockersMatch[1].trim().split('\n')
+      .filter(l => l.trim() && !l.includes('None yet') && !l.includes('RESOLVED'));
+    if (blockerLines.length > 0) {
+      activeBlockers = blockerLines.join('\n');
+    }
+  }
+
+  // Build compacted STATE.md
+  const compacted = `# Project State
+
+## Project Reference
+
+${projectRef}
+
+## Current Position
+
+${currentPos}
+
+## Key Learnings
+
+_To be filled by the orchestrator with 3-5 distilled insights from this milestone._
+
+## Active Blockers
+
+${activeBlockers}
+`;
+
+  fs.writeFileSync(statePath, compacted, 'utf-8');
+
+  const lineCount = compacted.split('\n').length;
+
+  output({
+    compacted: true,
+    path: '.blueprint/STATE.md',
+    line_count: lineCount,
+    sections_kept: ['Project Reference', 'Current Position', 'Key Learnings', 'Active Blockers'],
+    sections_discarded: ['Performance Metrics', 'Accumulated Context', 'Session Continuity'],
+  }, raw);
+}
+
 // ─── Compound Commands ────────────────────────────────────────────────────────
 
 function resolveModelInternal(cwd, agentType) {
   const config = loadConfig(cwd);
   const profile = config.model_profile || 'balanced';
+  // Check per-agent override first (per-agent model config)
+  if (config.agent_models && config.agent_models[agentType]) {
+    return config.agent_models[agentType];
+  }
   const agentModels = MODEL_PROFILES[agentType];
   if (!agentModels) return 'sonnet';
   return agentModels[profile] || agentModels['balanced'] || 'sonnet';
@@ -3781,6 +4002,9 @@ function cmdInitNewProject(cwd, raw) {
 
     // Enhanced search
     brave_search_available: hasBraveSearch,
+
+    // Codebase staleness context
+    mapper_model: resolveModelInternal(cwd, 'bp-codebase-mapper'),
   };
 
   output(result, raw);
@@ -3808,6 +4032,11 @@ function cmdInitNewMilestone(cwd, raw) {
     project_exists: pathExistsInternal(cwd, '.blueprint/PROJECT.md'),
     roadmap_exists: pathExistsInternal(cwd, '.blueprint/ROADMAP.md'),
     state_exists: pathExistsInternal(cwd, '.blueprint/STATE.md'),
+
+    // Codebase staleness context
+    mapper_model: resolveModelInternal(cwd, 'bp-codebase-mapper'),
+    has_codebase_map: pathExistsInternal(cwd, '.blueprint/codebase'),
+    has_git: pathExistsInternal(cwd, '.git'),
   };
 
   output(result, raw);
@@ -3911,6 +4140,11 @@ function cmdInitVerifyWork(cwd, phase, raw) {
 
     // Existing artifacts
     has_verification: phaseInfo?.has_verification || false,
+
+    // Codebase staleness context
+    mapper_model: resolveModelInternal(cwd, 'bp-codebase-mapper'),
+    has_codebase_map: pathExistsInternal(cwd, '.blueprint/codebase'),
+    has_git: pathExistsInternal(cwd, '.git'),
   };
 
   output(result, raw);
@@ -4063,6 +4297,11 @@ function cmdInitMilestoneOp(cwd, raw) {
     state_exists: pathExistsInternal(cwd, '.blueprint/STATE.md'),
     archive_exists: pathExistsInternal(cwd, '.blueprint/archive'),
     phases_dir_exists: pathExistsInternal(cwd, '.blueprint/phases'),
+
+    // Codebase remap context
+    mapper_model: resolveModelInternal(cwd, 'bp-codebase-mapper'),
+    has_codebase_map: pathExistsInternal(cwd, '.blueprint/codebase'),
+    has_git: pathExistsInternal(cwd, '.git'),
   };
 
   output(result, raw);
@@ -4097,6 +4336,10 @@ function cmdInitMapCodebase(cwd, raw) {
     // File existence
     planning_exists: pathExistsInternal(cwd, '.blueprint'),
     codebase_dir_exists: pathExistsInternal(cwd, '.blueprint/codebase'),
+
+    // Codebase mapping metadata
+    last_mapped_at: config.codebase_mapping.last_mapped_at,
+    last_mapped_commit: config.codebase_mapping.last_mapped_commit,
   };
 
   output(result, raw);
@@ -4280,6 +4523,8 @@ async function main() {
           stopped_at: stoppedIdx !== -1 ? args[stoppedIdx + 1] : null,
           resume_file: resumeIdx !== -1 ? args[resumeIdx + 1] : 'None',
         }, raw);
+      } else if (subcommand === 'compact') {
+        cmdStateCompact(cwd, raw);
       } else {
         cmdStateLoad(cwd, raw);
       }
@@ -4409,6 +4654,11 @@ async function main() {
 
     case 'config-set': {
       cmdConfigSet(cwd, args[1], args[2], raw);
+      break;
+    }
+
+    case 'codebase-staleness-check': {
+      cmdCodebaseStalenessCheck(cwd, raw);
       break;
     }
 
