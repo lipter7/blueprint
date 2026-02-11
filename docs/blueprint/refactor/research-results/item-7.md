@@ -7,7 +7,7 @@
 
 ## Core Finding
 
-Blueprint takes the simplest possible migration path: clean break from GSD, no coexistence, no backward compatibility. v1 distribution is clone-and-install from the forked repo — no npm publishing needed. The existing update system (`/gsd:update` → `workflows/update.md` → `bin/install.js`) is already excellent and gets ported to Blueprint with local-repo semantics instead of npm-registry semantics. The local patch system (SHA256 manifest hashing, backup/restore) survives intact. The only file removed for Cursor compatibility is `hooks/gsd-statusline.js` (Cursor has no statusline support).
+Blueprint takes the simplest possible migration path: clean break from GSD, no coexistence, no backward compatibility. Distribution uses npm — the same infrastructure GSD already built. The package gets a new name, the `bin` entry updates, and `npm publish` handles distribution. The entire update system (`/gsd:update` → `workflows/update.md` → `bin/install.js`) survives intact — just rename references. The update check hook, the local patch system (SHA256 manifest hashing, backup/restore), and the `npx` install flow all carry over with zero architectural changes. The only file removed for Cursor compatibility is `hooks/gsd-statusline.js` (Cursor has no statusline support).
 
 ---
 
@@ -49,19 +49,23 @@ Blueprint takes the simplest possible migration path: clean break from GSD, no c
 
 ---
 
-## Decision 3: Clone-and-Install Distribution for v1
+## Decision 3: npm Distribution (Same as GSD)
 
-**Decision:** v1 distribution is: user clones the Blueprint repo (or pulls updates), then runs `node bin/install.js` from inside the repo. No npm publishing, no `npx` distribution.
+**Decision:** Blueprint uses npm for distribution, identical to GSD's existing model. Users install via `npx <blueprint-package-name>`, updates check the npm registry, and the full install/update/patch infrastructure carries over unchanged.
 
-**User's reasoning:** "All that I really want to have work right now is that if a person clones this blueprint repo, which is a fork of the original GSD repo, they can then run the script to install from inside the cloned repo. We don't need any sort of distribution strategy in v1. We just need something so that we can start testing and using it."
+**User's reasoning (revised):** After investigating the scope, the user determined that npm distribution adds essentially zero extra work — the infrastructure already exists in the fork. The only changes are the package name and `bin` entry in `package.json`, plus running `npm publish`.
 
-**What this changes in the installer:**
+**What changes in `package.json`:**
+- `"name"`: `"get-shit-done-cc"` → new Blueprint package name (TBD — e.g., `"blueprint-dev"`, `"@scope/blueprint"`)
+- `"bin"`: `{ "get-shit-done-cc": "bin/install.js" }` → `{ "<blueprint-cli-name>": "bin/install.js" }`
+- `"description"`, `"repository"`, `"homepage"`, `"bugs"`: Updated for Blueprint
+- `"files"` array: Updated directory names (`get-shit-done` → `blueprint`)
+
+**What changes in the installer:**
 - The banner, branding, and help text change from "Get Shit Done" to "Blueprint"
-- The `package.json` name changes (for version tracking, not npm publishing)
-- The `bin` entry point may change for clarity
-- The npm-specific parts of the install flow (like the `npx` command references in help text) get updated to `node bin/install.js`
+- All `gsd-` prefixes in file patterns, cleanup logic, hook names → `bp-`
 
-**What stays the same:**
+**What stays identical:**
 - The runtime selection (Claude Code, OpenCode, Gemini, and Cursor per Item 4)
 - The global vs local install choice
 - The file copying pipeline (`copyWithPathReplacement`, `copyFlattenedCommands`)
@@ -69,37 +73,37 @@ Blueprint takes the simplest possible migration path: clean break from GSD, no c
 - The hooks installation (compiled from `hooks/dist/`)
 - The settings.json configuration (hooks, statusline)
 - The file manifest system for patch detection
+- The `prepublishOnly` → `build:hooks` pipeline
+- The `npx` install/update flow
 
 ---
 
-## Decision 4: Keep the Existing Update Workflow
+## Decision 4: Keep the Existing Update Workflow (Unchanged)
 
-**Decision:** The current update system — `/gsd:update` command → `get-shit-done/workflows/update.md` → routes through `bin/install.js` — is already excellent. Port it to Blueprint as `/bp:update` → `blueprint/workflows/update.md` → `bin/install.js`.
+**Decision:** The current update system — `/gsd:update` command → `get-shit-done/workflows/update.md` → routes through `bin/install.js` — is already excellent. Port it to Blueprint as `/bp:update` → `blueprint/workflows/update.md` → `bin/install.js`. Since Blueprint uses npm distribution (same as GSD), the update workflow is a straight rename with zero architectural changes.
 
 **User's reasoning:** "The current setup for however this works is great. So the workflow triggered by `commands/gsd/update.md` (`get-shit-done/workflows/update.md`) which I believe all route through `bin/install.js` is already excellent."
 
-**How the existing update works:**
-1. `/gsd:update` command triggers `workflows/update.md`
+**How the existing update works (unchanged for Blueprint):**
+1. `/bp:update` command triggers `workflows/update.md`
 2. Workflow detects install location (local vs global) via VERSION file
-3. Checks npm registry for latest version (`npm view get-shit-done-cc version`)
+3. Checks npm registry for latest version (`npm view <blueprint-package> version`)
 4. Compares versions, fetches changelog from GitHub
 5. Shows what's new, asks user confirmation via `AskUserQuestion`
-6. Runs clean install: `npx get-shit-done-cc --local` or `--global`
+6. Runs clean install: `npx <blueprint-package> --local` or `--global`
 7. Clears update cache, checks for local patches
-8. Offers `/gsd:reapply-patches` if patches detected
+8. Offers `/bp:reapply-patches` if patches detected
 
-**What changes for Blueprint's local-repo model:**
-- Step 3: Instead of checking npm, detect if the local repo has newer files than the installed version. Could compare VERSION file or git HEAD hash against the installed manifest's version/timestamp.
-- Step 4: Instead of fetching changelog from GitHub, read CHANGELOG.md from the local repo (already available since the user cloned it).
-- Step 6: Instead of `npx get-shit-done-cc`, run `node bin/install.js` from the repo directory. The installer needs to know the repo's location — either passed as an argument, stored in config during initial install, or detected from the command's own path reference.
+**What changes:** Only the package name in steps 3 and 6, and the command prefix in steps 1 and 8. The flow, logic, and infrastructure are identical.
 
 **What stays the same:**
+- The npm-based version checking
+- The changelog fetch from GitHub
 - The local patch system (SHA256 manifest → detect modifications → backup → clean install → offer reapply)
 - The user confirmation step
 - The `/bp:reapply-patches` command for merging user modifications back
 - The VERSION file tracking
-
-**Implementation note:** The installer should store the source repo path in config.json (or in the VERSION file alongside the version) during initial install, so the update command knows where to find the repo for re-installation.
+- The `npx` invocation for clean install
 
 ---
 
@@ -129,18 +133,16 @@ Blueprint takes the simplest possible migration path: clean break from GSD, no c
 
 ---
 
-## Decision 6: The Update Check Hook Adapts to Local-Repo Model
+## Decision 6: The Update Check Hook — Straight Rename
 
 **Current state:** `hooks/gsd-check-update.js` runs at SessionStart, spawns a detached process that queries `npm view get-shit-done-cc version`, writes result to `~/.claude/cache/gsd-update-check.json`, and the statusline shows an update indicator.
 
-**What changes for Blueprint:**
-- The hook renames to `hooks/bp-check-update.js` (or `blueprint-check-update.js`)
-- Instead of querying npm, it could:
-  - Check if the source repo directory exists and has newer commits (via `git -C <repo-path> log -1 --format=%H`)
-  - Compare against the installed manifest's version/hash
-  - Or simply check if the VERSION in the repo differs from the installed VERSION
+**What changes for Blueprint:** Since Blueprint uses npm distribution, this hook requires only renaming — no architectural changes:
+- File renames to `hooks/bp-check-update.js`
+- The `npm view` command queries the new Blueprint package name instead of `get-shit-done-cc`
 - Cache file moves to `~/.claude/cache/bp-update-check.json`
 - The statusline indicator changes from `⬆ /gsd:update` to `⬆ /bp:update`
+- The build script (`scripts/build-hooks.js`) updates to reference the new filename
 
 **For Cursor:** This hook is deferred to v2 (per Item 4, Decision 5). Cursor gets no session hooks in v1.
 
@@ -173,22 +175,24 @@ Based on codebase investigation, the GSD → Blueprint rename touches:
 ## What Changes from GSD
 
 1. **Clean break** — No GSD coexistence, no migration tooling, no `.planning/` support
-2. **Distribution model** — Clone-and-install from repo instead of npm publishing
-3. **Update mechanism** — Same workflow structure, but checks local repo instead of npm registry
-4. **All naming** — `gsd` → `bp`, `GSD` → `Blueprint`, `get-shit-done` → `blueprint`, `.planning/` → `.blueprint/`
-5. **Cursor install path** — No statusline hook, no session hooks (deferred to v2)
-6. **`docs/workflow-example/`** — Removed
+2. **All naming** — `gsd` → `bp`, `GSD` → `Blueprint`, `get-shit-done` → `blueprint`, `.planning/` → `.blueprint/`
+3. **npm package name** — New package name (TBD), new `bin` entry
+4. **Cursor install path** — No statusline hook, no session hooks (deferred to v2)
+5. **`docs/workflow-example/`** — Removed
 
 ## What Stays the Same
 
+- **The entire distribution model** — npm publishing, `npx` install, npm-based update checking
 - The installer's core architecture (`bin/install.js`)
 - Multi-runtime support (Claude Code, OpenCode, Gemini + Cursor)
 - Global vs local install model
 - Runtime-specific frontmatter conversion pipeline
 - Local patch system (manifest hashing, backup, reapply)
 - The update workflow structure (command → workflow → installer)
+- The update check hook (queries npm registry at SessionStart)
 - Settings.json hook registration pattern
 - Compiled hooks distribution (`hooks/dist/`)
+- The `prepublishOnly` build pipeline
 - The uninstall command and cleanup logic (adapted for `bp-` prefix)
 
 ---
@@ -212,17 +216,16 @@ Based on codebase investigation, the GSD → Blueprint rename touches:
 
 ### What Requires Design Work
 
-- **Update workflow adaptation** — The update command/workflow needs to detect local repo changes instead of npm versions. Needs the repo source path stored during install so the update command can find it.
 - **Installer Cursor path** — Per Item 4, `convertClaudeToCursorSkill()` and `convertClaudeToCursorAgent()` need to be implemented. The `--cursor` flag and its install path are new code.
-- **Update check hook adaptation** — Changing from npm-based version checking to git/file-based checking for local repo model.
 - **MODEL_PROFILES sync** — After agent renames, the model routing table in gsd-tools.js (→ blueprint-tools.js) must be updated in lockstep.
 - **Test suite updates** — `gsd-tools.test.js` (~2000 lines) needs all references updated and tests passing.
+- **npm package name selection** — Need to verify the chosen name is available on npmjs.com.
 
 ### What's Its Own Phase
 
 - **The full rename** is best done as a single coordinated phase — renaming files, updating references, and verifying tests pass. Doing it incrementally would create a broken state where some references point to old names and others to new.
 - **The Cursor installer path** (new `--cursor` flag, skill/agent conversion, AskQuestion conversion per Item 4/4a) is a separate implementation phase that can happen before or after the rename.
-- **The update workflow adaptation** (npm → local repo) is a small but distinct piece of work that should happen after the rename, since the update command itself gets renamed.
+- **First npm publish** — After the rename phase is complete and tests pass, publish the initial version to npm. This is a small step but marks the transition from GSD to Blueprint as a distributable package.
 
 ---
 
