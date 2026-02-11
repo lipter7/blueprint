@@ -1,6 +1,6 @@
 ---
 name: codebase-explorer
-model: claude-4.6-opus-high
+model: inherit
 description: Deep codebase search, discovery, and understanding agent. Use PROACTIVELY when exploring unfamiliar code, tracing data flows, understanding architecture, finding where functionality lives, or answering "how does X work?" questions. Ideal for multi-file investigations that require connecting dots across the monorepo.
 ---
 

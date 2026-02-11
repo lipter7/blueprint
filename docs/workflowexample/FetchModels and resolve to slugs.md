@@ -355,6 +355,10 @@ const openaiModels = openaiResponse.data
 1. **Default (high reasoning + thinking)**: Recommended for most use cases
 2. **Base (no reasoning/thinking)**: For cost-sensitive tasks
 
+**Special Model Values in Subagent Frontmatter**:
+- **`model: inherit`** - Subagent uses same model as parent agent (maintains consistency across agent chains)
+- **`model: fast`** - Special alias that maps to **Composer 1** (Cursor's fastest, most cost-effective model)
+
 **Variant Generation Logic**:
 
 ```javascript
@@ -1691,6 +1695,22 @@ For models that can't be resolved via APIs, use this lookup:
   "Gemini 2.5 Flash": "gemini-2.5-flash-thinking",
   "Grok Code": "grok-code-thinking",
   "GPT-5.3 Codex": "gpt-5.3-codex"
+}
+```
+
+### Special Model Values
+
+```json
+{
+  "inherit": {
+    "description": "Subagent inherits parent agent's model",
+    "use_case": "Maintains consistency across agent chains"
+  },
+  "fast": {
+    "description": "Alias for Composer 1 (fastest, most cost-effective)",
+    "resolves_to": "composer-1",
+    "use_case": "Quick, straightforward tasks with minimal cost"
+  }
 }
 ```
 

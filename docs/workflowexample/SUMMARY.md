@@ -131,6 +131,10 @@ Output: Registry with 5 models, 9 variants
 5. **Composer 1.5** (Cursor)
    - Default: `composer-1.5-thinking`
 
+**Special Model Values**:
+- **`inherit`**: Subagent inherits parent agent's model (for consistency)
+- **`fast`**: Maps to Composer 1 (fastest, most cost-effective option)
+
 **Total**: 5 models, 9 variants
 
 ---

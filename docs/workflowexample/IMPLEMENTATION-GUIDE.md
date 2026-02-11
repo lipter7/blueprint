@@ -37,6 +37,10 @@ Automatically maintains a JSON registry of Cursor models with validated IDs for 
 | OpenAI | GPT-5.2 | Latest general model |
 | Cursor | Composer 1.5 | Native IDE model |
 
+**Special Values**:
+- `model: inherit` - Subagent uses parent's model
+- `model: fast` - Maps to Composer 1 (fastest/cheapest)
+
 **Excluded**: Older versions (Claude 4, GPT-5.1), other providers (Gemini, Grok)
 
 ---
@@ -98,6 +102,19 @@ Returns: `gpt-5.3-codex`, `gpt-5.2`
 {
   "schema_version": "1.0.0",
   "last_updated": "2026-02-11T18:30:00Z",
+  
+  "special_values": {
+    "inherit": {
+      "description": "Subagent inherits parent agent's model",
+      "use_case": "Maintains consistency across agent chains"
+    },
+    "fast": {
+      "description": "Maps to Composer 1 (fastest, most cost-effective)",
+      "resolves_to": "composer-1",
+      "use_case": "Quick tasks with minimal cost/latency"
+    }
+  },
+  
   "models": {
     "Claude 4.6 Opus": {
       "provider": "anthropic",

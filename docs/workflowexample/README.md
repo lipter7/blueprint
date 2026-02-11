@@ -134,6 +134,10 @@ Result: Validated registry with 9 model variants
 - **default**: High reasoning + thinking (recommended)
 - **base**: No enhancements (cost-effective)
 
+**Special Model Values**:
+- **`inherit`**: Subagent uses same model as parent agent
+- **`fast`**: Alias that maps to Composer 1 (fastest/cheapest)
+
 ### Environment Requirements
 
 ```bash

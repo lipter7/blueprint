@@ -162,6 +162,10 @@
 - **default**: High reasoning + thinking (recommended)
 - **base**: No enhancements (cost-effective)
 
+### Special Model Values
+- **`inherit`**: Subagent uses parent agent's model
+- **`fast`**: Maps to Composer 1 (fastest/cheapest)
+
 ### The 3 Transformation Rules
 1. **Anthropic**: Complex (version format + reordering)
 2. **OpenAI**: Simple (use directly)
