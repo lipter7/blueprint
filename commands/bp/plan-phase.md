@@ -1,5 +1,5 @@
 ---
-name: gsd:plan-phase
+name: bp:plan-phase
 description: Create detailed execution plan for a phase (PLAN.md) with verification loop
 argument-hint: "[phase] [--research] [--skip-research] [--gaps] [--skip-verify]"
 agent: bp-planner

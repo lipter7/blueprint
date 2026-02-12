@@ -310,7 +310,7 @@ For phase-level research, also include:
 When `mode: "yolo"` or running in auto mode:
 - Skip pre-research interview entirely
 - Researchers receive default context: all focus areas, no known problems, "Research should recommend"
-- This matches current GSD behavior (research runs unsupervised)
+- This matches current behavior (research runs unsupervised)
 
 </pre_research_interview>
 

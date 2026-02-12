@@ -1,5 +1,5 @@
 ---
-name: gsd:set-profile
+name: bp:set-profile
 description: Switch model profile for Blueprint agents (quality/balanced/budget)
 argument-hint: <profile>
 allowed-tools:

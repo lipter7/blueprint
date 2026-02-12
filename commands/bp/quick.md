@@ -1,5 +1,5 @@
 ---
-name: gsd:quick
+name: bp:quick
 description: Execute a quick task with Blueprint guarantees (atomic commits, state tracking) but skip optional agents
 argument-hint: ""
 allowed-tools:

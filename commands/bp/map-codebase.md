@@ -1,5 +1,5 @@
 ---
-name: gsd:map-codebase
+name: bp:map-codebase
 description: Analyze codebase with parallel mapper agents to produce .blueprint/codebase/ documents
 argument-hint: "[optional: specific area to map, e.g., 'api' or 'auth']"
 allowed-tools:

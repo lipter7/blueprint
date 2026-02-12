@@ -1,5 +1,5 @@
 ---
-name: gsd:help
+name: bp:help
 description: Show available Blueprint commands and usage guide
 ---
 <objective>

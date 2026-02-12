@@ -1,5 +1,5 @@
 ---
-name: gsd:settings
+name: bp:settings
 description: Configure Blueprint workflow toggles and model profile
 allowed-tools:
   - Read

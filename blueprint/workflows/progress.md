@@ -381,5 +381,5 @@ Ready to plan the next milestone.
 - [ ] What's next clearly explained
 - [ ] Smart routing: /bp:execute-phase if plans exist, /bp:plan-phase if not
 - [ ] User confirms before any action
-- [ ] Seamless handoff to appropriate gsd command
+- [ ] Seamless handoff to appropriate bp command
       </success_criteria>

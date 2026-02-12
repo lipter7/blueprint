@@ -1,5 +1,5 @@
 ---
-name: gsd:research-phase
+name: bp:research-phase
 description: Research how to implement a phase (standalone - usually use /bp:plan-phase instead)
 argument-hint: "[phase]"
 allowed-tools:

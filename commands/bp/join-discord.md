@@ -1,5 +1,5 @@
 ---
-name: gsd:join-discord
+name: bp:join-discord
 description: Join the Blueprint Discord community
 ---
 
